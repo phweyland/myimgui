@@ -9,8 +9,7 @@ typedef struct apdt_t
   GLFWwindow *window;
   int theme;
   dt_rc_t rc;            // config file
-}
-apdt_t;
+} apdt_t;
 
 extern apdt_t apdt;
 extern const char *ap_name;
