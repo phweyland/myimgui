@@ -1,7 +1,10 @@
 extern "C" {
 #include "gui.h"
+#include "../db/database.h"
+#include "../core/threads.h"
 }
 #include "themes.hh"
+#include "widget_filebrowser.hh"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -360,6 +363,9 @@ static void glfw_error_callback(int error, const char* description)
 bool show_demo_window;
 bool show_another_window;
 ImVec4 clear_color;
+char impdt_text[256];
+int impdt_taskid;
+int impdt_abort;
 
 extern "C" int ap_gui_init_imgui()
 {
@@ -473,6 +479,9 @@ extern "C" int ap_gui_init_imgui()
   show_demo_window = true;
   show_another_window = false;
   clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+  impdt_text[0] = 0;
+  impdt_taskid = -1;
+  impdt_abort = 0;
 
   return 0;
 }
@@ -503,10 +512,12 @@ extern "C" void ap_gui_render_frame_imgui()
 
   // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
 //  if (show_demo_window)
-//      ImGui::ShowDemoWindow(&show_demo_window);
+      ImGui::ShowDemoWindow(&show_demo_window);
 
   // 2. Show a simple window that we create ourselves. We use a Begin/End pair to created a named window.
   {
+      static dt_filebrowser_widget_t filebrowser = {{0}};
+
       static float f = 0.0f;
       static int counter = 0;
 
@@ -543,6 +554,45 @@ extern "C" void ap_gui_render_frame_imgui()
           ImGui::EndCombo();
       }
 
+      if(ImGui::CollapsingHeader("darktable"))
+      {
+          if(ImGui::Button("locate darktable"))
+          {
+            const char* dt_dir = dt_rc_get(&apdt.rc, "darktable", "");
+            if(dt_dir[0])
+              snprintf(filebrowser.cwd, sizeof(filebrowser.cwd), "%s", dt_dir);
+            dt_filebrowser_open(&filebrowser);
+          }
+          if(dt_filebrowser_display(&filebrowser, 'd'))
+          { // "ok" pressed
+            dt_rc_set(&apdt.rc, "darktable", filebrowser.cwd);
+            dt_filebrowser_cleanup(&filebrowser); // reset all but cwd
+          }
+          ImGui::SameLine();
+          ImGui::Text("%s", dt_rc_get(&apdt.rc, "darktable", ""));
+
+          if(ImGui::Button("import darktable"))
+          {
+            if(!threads_task_running(impdt_taskid))
+            {
+              const char* dt_dir = dt_rc_get(&apdt.rc, "darktable", "");
+              if(dt_dir[0])
+              {
+                impdt_abort = 0;
+                impdt_text[0] = 0;
+                impdt_taskid = ap_import_darktable(dt_dir, impdt_text, &impdt_abort);
+              }
+            }
+          }
+          ImGui::SameLine();
+          if(ImGui::Button("abort") && threads_task_running(impdt_taskid))
+            impdt_abort = 1;
+          ImGui::SameLine();
+          ImGui::Text("%s", impdt_text);
+      }
+
+//      ImGui::ShowMetricsWindow();
+
       ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
       ImGui::End();
   }
@@ -575,6 +625,7 @@ extern "C" void ap_gui_render_frame_imgui()
 extern "C" void ap_gui_cleanup_imgui()
 {
   // Cleanup
+  impdt_abort = 1;
   VkResult err = vkDeviceWaitIdle(g_Device);
   check_vk_result(err);
   ImGui_ImplVulkan_Shutdown();

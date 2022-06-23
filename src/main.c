@@ -2,6 +2,8 @@
 #include "gui/gui.h"
 #include "gui/render.h"
 #include "core/log.h"
+#include "core/threads.h"
+#include "db/database.h"
 #include <sys/stat.h>
 #include <stdlib.h>
 
@@ -11,11 +13,13 @@ int main(int, char**)
   snprintf(basedir, sizeof(basedir), "%s/.config/%s", getenv("HOME"), ap_name);
   mkdir(basedir, 0755);
   dt_log_init(s_log_err|s_log_gui);
+  threads_global_init();
   if(ap_gui_init())
   {
     dt_log(s_log_gui|s_log_err, "failed to init gui/swapchain");
     return 1;
   }
+  ap_init_db();
 
   // Main loop
   while (!glfwWindowShouldClose(apdt.window))
@@ -33,6 +37,8 @@ int main(int, char**)
   // Cleanup
   ap_gui_cleanup_imgui();
   ap_gui_cleanup();
+  threads_shutdown();
+  threads_global_cleanup();
 
   return 0;
 }
