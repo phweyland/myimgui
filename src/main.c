@@ -3,6 +3,7 @@
 #include "gui/render.h"
 #include "core/log.h"
 #include "core/threads.h"
+#include "core/signal.h"
 #include "db/database.h"
 #include <sys/stat.h>
 #include <stdlib.h>
@@ -14,6 +15,7 @@ int main(int, char**)
   mkdir(basedir, 0755);
   dt_log_init(s_log_err|s_log_gui);
   threads_global_init();
+  dt_set_signal_handlers();
   if(ap_gui_init())
   {
     dt_log(s_log_gui|s_log_err, "failed to init gui/swapchain");
