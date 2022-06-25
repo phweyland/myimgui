@@ -7,6 +7,7 @@
 #include "../core/threads.h"
 #include <stdio.h>
 #include <stdlib.h>
+//#include <glib.h>
 
 ap_db_t ap_db;
 
@@ -21,7 +22,6 @@ typedef struct impdt_job_t
 void impdt_work(uint32_t item, void *arg)
 {
   impdt_job_t *impdt = (impdt_job_t *)arg;
-  printf("impdt_work started %s\n", impdt->dt_dir);
   char dt_library[256];
   char dt_data[256];
   snprintf(dt_library, sizeof(dt_library), "%s/library.db", impdt->dt_dir);
@@ -64,10 +64,13 @@ void impdt_work(uint32_t item, void *arg)
   sqlite3_exec(ap_db.handle, "ALTER TABLE main.images ADD COLUMN temp INTEGER", NULL, NULL, NULL);
   sqlite3_exec(ap_db.handle, "CREATE UNIQUE INDEX main.images_temp_index ON images (temp)", NULL, NULL, NULL);
 
-  sqlite3_exec(ap_db.handle, "INSERT INTO main.folders (id, folder) "
-                             "SELECT id, folder FROM library.film_rolls", NULL, NULL, NULL);
+  sqlite3_exec(ap_db.handle, "INSERT INTO main.folders (id, rootid, folder) "
+                             "SELECT f.id, r.id, SUBSTR(f.folder, LENGTH(r.root)+1) "
+                             "FROM library.film_rolls AS f "
+                             "JOIN main.roots AS r ON r.root = SUBSTR(f.folder, 1, LENGTH(r.root))", NULL, NULL, NULL);
+
   sqlite3_exec(ap_db.handle, "INSERT INTO main.tags SELECT * FROM data.tags", NULL, NULL, NULL);
-  
+
   sqlite3_prepare_v2(ap_db.handle, "SELECT id, film_id, filename FROM library.images", -1, &stmt, NULL);
   int count = 0;
   int faulty = 0;
@@ -77,7 +80,7 @@ void impdt_work(uint32_t item, void *arg)
     const int imgid = sqlite3_column_int(stmt, 0);
     const int hash = murmur_hash3(filename, strlen(filename), 1337);
     sqlite3_stmt *stmt2;
-    sqlite3_prepare_v2(ap_db.handle, "INSERT INTO main.images (id, folder_id, filename, temp) "
+    sqlite3_prepare_v2(ap_db.handle, "INSERT INTO main.images (id, folderid, filename, temp) "
                                      "VALUES (?1, ?2, ?3, ?4)", -1, &stmt2, NULL);
     sqlite3_bind_int(stmt2, 1, imgid);
     sqlite3_bind_int(stmt2, 2, sqlite3_column_int(stmt, 1));
@@ -122,26 +125,31 @@ int ap_import_darktable(const char *dt_dir, char *text, int *abort)
 static void _create_schema(ap_db_t *db)
 {
 
-  sqlite3_exec(db->handle, "CREATE TABLE main.folders (id INTEGER PRIMARY KEY, folder VARCHAR NOT NULL)", NULL, NULL, NULL);
-  sqlite3_exec(db->handle, "CREATE INDEX main.folders_folder_index ON folders (folder)", NULL, NULL, NULL);
+  sqlite3_exec(db->handle, "CREATE TABLE main.roots (id INTEGER PRIMARY KEY, root VARCHAR NOT NULL)", NULL, NULL, NULL);
+  sqlite3_exec(db->handle, "CREATE INDEX main.roots_root_index ON roots (root)", NULL, NULL, NULL);
+
+  sqlite3_exec(db->handle, "CREATE TABLE main.folders (id INTEGER PRIMARY KEY, rootid INTEGER, folder VARCHAR NOT NULL,"
+                           "FOREIGN KEY(rootid) REFERENCES roots(id) ON DELETE CASCADE ON UPDATE CASCADE)", NULL, NULL, NULL);
+  sqlite3_exec(db->handle, "CREATE INDEX main.folders_folder_index ON folders (rootid, folder)", NULL, NULL, NULL);
 
   sqlite3_exec(db->handle, "CREATE TABLE main.tags (id INTEGER PRIMARY KEY, name VARCHAR, "
                            "synonyms VARCHAR, flags INTEGER)", NULL, NULL, NULL);
   sqlite3_exec(db->handle, "CREATE UNIQUE INDEX data.tags_name_idx ON tags (name)", NULL, NULL, NULL);
 
   sqlite3_exec(db->handle, "CREATE TABLE main.images (id INTEGER PRIMARY KEY, "
-                           "folder_id INTEGER, filename VARCHAR, "
-                           "FOREIGN KEY(folder_id) REFERENCES folders(id) ON DELETE CASCADE ON UPDATE CASCADE)",
-               NULL, NULL, NULL);
-  sqlite3_exec(db->handle, "CREATE INDEX main.images_folder_id_index ON images (folder_id, filename)", NULL, NULL, NULL);
+                           "folderid INTEGER, filename VARCHAR, "
+                           "FOREIGN KEY(folderid) REFERENCES folders(id) ON DELETE CASCADE ON UPDATE CASCADE)", NULL, NULL, NULL);
+  sqlite3_exec(db->handle, "CREATE INDEX main.images_folderid_index ON images (folderid, filename)", NULL, NULL, NULL);
 
   sqlite3_exec(db->handle, "CREATE TABLE main.tagged_images (imgid INTEGER, tagid INTEGER, "
                            "PRIMARY KEY (imgid, tagid),"
-                           "FOREIGN KEY(imgid) REFERENCES images(id) ON UPDATE CASCADE ON DELETE CASCADE)", NULL, NULL, NULL);
+                           "FOREIGN KEY(imgid) REFERENCES images(id) ON UPDATE CASCADE ON DELETE CASCADE,"
+                           "FOREIGN KEY(tagid) REFERENCES tags(id) ON UPDATE CASCADE ON DELETE CASCADE)", NULL, NULL, NULL);
+
   sqlite3_exec(db->handle, "CREATE INDEX main.tagged_images_tagid_index ON tagged_images (tagid)", NULL, NULL, NULL);
 }
 
-void ap_init_db()
+void ap_db_init()
 {
   apdt.db = &ap_db;
 //  sqlite3_config(SQLITE_CONFIG_SERIALIZED);
@@ -174,5 +182,89 @@ void ap_init_db()
   {
     _create_schema(&ap_db);
   }
+}
 
+int ap_db_get_subnodes(const char *parent, const char *sep, ap_nodes_t **nodes)
+{
+  if(!nodes)
+    return 0;
+  sqlite3_stmt *stmt;
+  if(sep[0] == '/')
+  {
+    if(parent[0])
+    {
+      sqlite3_prepare_v2(ap_db.handle,
+                         "SELECT folder, MAX(parent) FROM (SELECT DISTINCT"
+                         " CASE WHEN instr(SUBSTR(folder, LENGTH(?1||?2)+1), ?2) > 0"
+                         "  THEN substr(folder, LENGTH(?1||?2)+1, instr(SUBSTR(folder, LENGTH(?1||?2)+1), ?2)-1)"
+                         "  ELSE substr(folder, LENGTH(?1||?2)+1)  END AS folder,"
+                         " CASE WHEN instr(SUBSTR(folder, LENGTH(?1||?2)+1), ?2) > 0 THEN 1 ELSE 0 END as parent "
+                         "FROM main.folders "
+                         "WHERE SUBSTR(folder, 1, LENGTH(?1||?2)) = ?1||?2) GROUP BY folder",
+                         -1, &stmt, NULL);
+      sqlite3_bind_text(stmt, 1, parent, -1, SQLITE_STATIC);
+      sqlite3_bind_text(stmt, 2, sep, -1, SQLITE_STATIC);
+    }
+    else
+    {
+      sqlite3_prepare_v2(ap_db.handle,
+                         "SELECT folder, MAX(parent) FROM (SELECT DISTINCT"
+                         " CASE WHEN instr(folder, ?1) > 0"
+                         "  THEN substr(folder, 1, instr(folder, ?1)-1)"
+                         "  ELSE folder END AS folder,"
+                         " CASE WHEN instr(folder, ?1) > 0 THEN 1 ELSE 0 END as parent "
+                         "FROM main.folders) GROUP BY folder",
+                         -1, &stmt, NULL);
+      sqlite3_bind_text(stmt, 1, sep, -1, SQLITE_STATIC);
+    }
+  }
+  else
+  {
+    if(parent[0])
+    {
+      sqlite3_prepare_v2(ap_db.handle,
+                         "SELECT name, MAX(parent) FROM (SELECT DISTINCT"
+                         " CASE WHEN instr(SUBSTR(name, LENGTH(?1||?2)+1), ?2) > 0"
+                         "  THEN substr(name, LENGTH(?1||?2)+1, instr(SUBSTR(name, LENGTH(?1||?2)+1), ?2)-1)"
+                         "  ELSE substr(name, LENGTH(?1||?2)+1)  END AS name,"
+                         " CASE WHEN instr(SUBSTR(name, LENGTH(?1||?2)+1), ?2) > 0 THEN 1 ELSE 0 END as parent "
+                         "FROM main.tags "
+                         "WHERE SUBSTR(name, 1, LENGTH(?1||?2)) = ?1||?2) GROUP BY name",
+                         -1, &stmt, NULL);
+      sqlite3_bind_text(stmt, 1, parent, -1, SQLITE_STATIC);
+      sqlite3_bind_text(stmt, 2, sep, -1, SQLITE_STATIC);
+    }
+    else
+    {
+      sqlite3_prepare_v2(ap_db.handle,
+                         "SELECT name, MAX(parent) FROM (SELECT DISTINCT"
+                         " CASE WHEN instr(name, ?1) > 0"
+                         "  THEN substr(name, 1, instr(name, ?1)-1)"
+                         "  ELSE name END AS name,"
+                         " CASE WHEN instr(name, ?1) > 0 THEN 1 ELSE 0 END as parent "
+                         "FROM main.tags) GROUP BY name",
+                         -1, &stmt, NULL);
+      sqlite3_bind_text(stmt, 1, sep, -1, SQLITE_STATIC);
+    }
+  }
+  int count = 0;
+  while(sqlite3_step(stmt) == SQLITE_ROW)
+    count++;
+  if(!count)
+  {
+    sqlite3_finalize(stmt);
+    return 0;
+  }
+
+  sqlite3_reset(stmt);
+  *nodes = calloc(count, sizeof(ap_nodes_t));
+  ap_nodes_t *node = *nodes;
+  for(int i = 0; i < count && sqlite3_step(stmt) == SQLITE_ROW; i++)
+  {
+    snprintf(node->name, sizeof(node->name), "%s", sqlite3_column_text(stmt, 0));
+    node->parent = sqlite3_column_int(stmt, 1);
+    node++;
+  }
+  sqlite3_finalize(stmt);
+  return count;
 }

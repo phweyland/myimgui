@@ -212,7 +212,6 @@ void threads_wait(int taskid)
 void threads_global_init()
 {
   thr.num_threads = sysconf(_SC_NPROCESSORS_ONLN);
-  printf("num_threads %d\n", thr.num_threads);
   thr.shutdown = 0;
   thr.task_max = thr.num_threads * 10;
   thr.task     = malloc(sizeof(threads_task_t)*thr.task_max);

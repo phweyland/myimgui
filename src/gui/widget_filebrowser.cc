@@ -7,13 +7,13 @@
 #include "imgui.h"
 
 // no need to explicitly call it, just sets 0
-extern "C" void dt_filebrowser_init(dt_filebrowser_widget_t *w)
+void dt_filebrowser_init(dt_filebrowser_widget_t *w)
 {
   memset(w, 0, sizeof(*w));
 }
 
 // could just leak it, no need to call this:
-extern "C" void dt_filebrowser_cleanup(dt_filebrowser_widget_t *w)
+void dt_filebrowser_cleanup(dt_filebrowser_widget_t *w)
 {
   for(int i=0;i<w->ent_cnt;i++)
     free(w->ent[i]);
@@ -26,28 +26,27 @@ extern "C" void dt_filebrowser_cleanup(dt_filebrowser_widget_t *w)
 // TODO: make one that sorts dirs first:
 // int alphasort(const struct dirent **a, const struct dirent **b);
 
-extern "C" int dt_filebrowser_filter_dir(const struct dirent *d)
+int dt_filebrowser_filter_dir(const struct dirent *d)
 {
 //  if(d->d_name[0] == '.' && d->d_name[1] != '.') return 0; // filter out hidden files
   if(d->d_type != DT_DIR) return 0; // filter out non-dirs too
   return 1;
 }
 
-extern "C" int dt_filebrowser_filter_file(const struct dirent *d)
+int dt_filebrowser_filter_file(const struct dirent *d)
 {
   if(d->d_name[0] == '.' && d->d_name[1] != '.') return 0; // filter out hidden files
   return 1;
 }
 
-extern "C" void dt_filebrowser_open(dt_filebrowser_widget_t *w)
+void dt_filebrowser_open(dt_filebrowser_widget_t *w)
 {
 //  ImGui::SetNextWindowSize(ImVec2(vkdt.state.center_wd*0.8, vkdt.state.center_ht*0.8), ImGuiCond_Always);
   ImGui::OpenPopup("select directory");
 }
 
-
 // returns 0 if cancelled, or 1 if "ok" has been pressed
-extern "C" int dt_filebrowser_display(dt_filebrowser_widget_t *w, const char mode) // 'f' or 'd'
+int dt_filebrowser_display(dt_filebrowser_widget_t *w, const char mode) // 'f' or 'd'
 {
   if(w->cwd[0] == 0) w->cwd[0] = '/';
   int ret = 0;
@@ -55,6 +54,8 @@ extern "C" int dt_filebrowser_display(dt_filebrowser_widget_t *w, const char mod
   if(ImGui::BeginPopupModal("select directory", 0, 0))
       // ImGuiWindowFlags_NoTitleBar))
   {
+    ImGui::Text(": %s", w->cwd);
+
     ImGui::PushID(w);
 
     if(!w->ent)

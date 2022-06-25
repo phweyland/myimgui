@@ -19,7 +19,7 @@ int main(int, char**)
     dt_log(s_log_gui|s_log_err, "failed to init gui/swapchain");
     return 1;
   }
-  ap_init_db();
+  ap_db_init();
 
   // Main loop
   while (!glfwWindowShouldClose(apdt.window))
