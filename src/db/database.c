@@ -96,8 +96,7 @@ void impdt_work(uint32_t item, void *arg)
   }
   sqlite3_finalize(stmt);
 
-  sqlite3_exec(ap_db.handle, "INSERT INTO main.tagged_images (imgid, tagid) "
-                             "SELECT imgid, tagid FROM library.tagged_images "
+  sqlite3_exec(ap_db.handle, "INSERT INTO main.tagged_images SELECT * FROM library.tagged_images "
                              "JOIN main.images ON id = imgid", NULL, NULL, NULL);
   sqlite3_exec(ap_db.handle, "UPDATE main.images SET id = temp", NULL, NULL, NULL);
   sqlite3_exec(ap_db.handle, "DROP INDEX IF EXISTS main.images_temp_index", NULL, NULL, NULL);
@@ -141,12 +140,12 @@ static void _create_schema(ap_db_t *db)
                            "FOREIGN KEY(folderid) REFERENCES folders(id) ON DELETE CASCADE ON UPDATE CASCADE)", NULL, NULL, NULL);
   sqlite3_exec(db->handle, "CREATE INDEX main.images_folderid_index ON images (folderid, filename)", NULL, NULL, NULL);
 
-  sqlite3_exec(db->handle, "CREATE TABLE main.tagged_images (imgid INTEGER, tagid INTEGER, "
+  sqlite3_exec(db->handle, "CREATE TABLE main.tagged_images (imgid INTEGER, tagid INTEGER, position INTEGER, "
                            "PRIMARY KEY (imgid, tagid),"
                            "FOREIGN KEY(imgid) REFERENCES images(id) ON UPDATE CASCADE ON DELETE CASCADE,"
                            "FOREIGN KEY(tagid) REFERENCES tags(id) ON UPDATE CASCADE ON DELETE CASCADE)", NULL, NULL, NULL);
-
   sqlite3_exec(db->handle, "CREATE INDEX main.tagged_images_tagid_index ON tagged_images (tagid)", NULL, NULL, NULL);
+  sqlite3_exec(db->handle, "CREATE INDEX main.tagged_images_position_index ON tagged_images (position)", NULL, NULL, NULL);
 }
 
 void ap_db_init()

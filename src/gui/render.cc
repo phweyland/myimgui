@@ -518,7 +518,7 @@ extern "C" void ap_gui_render_frame_imgui()
   ImGui::ShowDemoWindow(&show_demo_window);
 
   {
-    ImGui::Begin("apdt");
+    ImGui::Begin("Navigation");
 
     if(ImGui::CollapsingHeader("Images"))
     {
