@@ -9,6 +9,18 @@
 const char *ap_name = "apdt";
 apdt_t apdt;
 
+void ap_gui_window_resize()
+{
+  const float pwd = apdt.panel_width_frac * apdt.win_width;
+//  apdt.center_x = apdt.border_frac * apdt.win_width;
+//  apdt.center_y = apdt.border_frac * apdt.win_width;
+//  apdt.scale = -1.0f;
+  apdt.panel_wd = pwd;
+  apdt.center_wd = apdt.win_width * (1.0f - 2.0f * apdt.border_frac) - pwd;
+  apdt.center_ht = apdt.win_height - 2*apdt.border_frac * apdt.win_width;
+  apdt.panel_ht = apdt.win_height;
+}
+
 int ap_gui_init()
 {
   if(!glfwInit())
@@ -33,6 +45,13 @@ int ap_gui_init()
   dt_rc_init(&apdt.rc);
   dt_rc_read(&apdt.rc, configfile);
 
+  apdt.panel_width_frac = 0.2f;
+  apdt.border_frac = 0.02f;
+  GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+  const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+  // start "full screen"
+  apdt.win_width  = mode->width;  //1920;
+  apdt.win_height = mode->height; //1080;
   ap_gui_init_imgui();
 
   return 0;

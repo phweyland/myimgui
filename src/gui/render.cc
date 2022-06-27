@@ -52,7 +52,7 @@ static VkDescriptorPool         g_DescriptorPool = VK_NULL_HANDLE;
 
 static ImGui_ImplVulkanH_Window g_MainWindowData;
 static int                      g_MinImageCount = 2;
-static int                      g_SwapChainRebuild = 0; // false;
+static int                      g_SwapChainRebuild = 1;
 
 static void check_vk_result(VkResult err)
 {
@@ -499,12 +499,12 @@ extern "C" void ap_gui_render_frame_imgui()
   // Resize swap chain?
   if (g_SwapChainRebuild)
   {
-    int width, height;
-    glfwGetFramebufferSize(apdt.window, &width, &height);
-    if (width > 0 && height > 0)
+    glfwGetFramebufferSize(apdt.window, &apdt.win_width, &apdt.win_height);
+    ap_gui_window_resize();
+    if (apdt.win_width > 0 && apdt.win_height > 0)
     {
       ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
-      ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, g_PhysicalDevice, g_Device, &g_MainWindowData, g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
+      ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, g_PhysicalDevice, g_Device, &g_MainWindowData, g_QueueFamily, g_Allocator, apdt.win_width, apdt.win_height, g_MinImageCount);
       g_MainWindowData.FrameIndex = 0;
       g_SwapChainRebuild = false;
     }
@@ -518,7 +518,10 @@ extern "C" void ap_gui_render_frame_imgui()
   ImGui::ShowDemoWindow(&show_demo_window);
 
   {
-    ImGui::Begin("Navigation");
+    ImGui::SetNextWindowPos(ImVec2(apdt.win_width - apdt.panel_wd, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(apdt.panel_wd, apdt.panel_ht), ImGuiCond_Always);
+    ImGui::Begin("RightPanel", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+//    ImGui::Begin("RightPanel");
 
     if(ImGui::CollapsingHeader("Images"))
     {
