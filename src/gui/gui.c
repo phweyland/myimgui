@@ -12,9 +12,9 @@ apdt_t apdt;
 void ap_gui_window_resize()
 {
   const float pwd = apdt.panel_width_frac * apdt.win_width;
-//  apdt.center_x = apdt.border_frac * apdt.win_width;
-//  apdt.center_y = apdt.border_frac * apdt.win_width;
-//  apdt.scale = -1.0f;
+  apdt.center_x = apdt.border_frac * apdt.win_width;
+  apdt.center_y = apdt.border_frac * apdt.win_width;
+  apdt.scale = -1.0f;
   apdt.panel_wd = pwd;
   apdt.center_wd = apdt.win_width * (1.0f - 2.0f * apdt.border_frac) - pwd;
   apdt.center_ht = apdt.win_height - 2*apdt.border_frac * apdt.win_width;
@@ -65,4 +65,9 @@ void ap_gui_cleanup()
   dt_rc_cleanup(&apdt.rc);
   glfwDestroyWindow(apdt.window);
   glfwTerminate();
+}
+
+void ap_gui_switch_collection(const char *node, const int type)
+{
+  apdt.image_cnt = ap_db_get_images(node, type, &apdt.images);
 }

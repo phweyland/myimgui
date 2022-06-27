@@ -517,11 +517,11 @@ extern "C" void ap_gui_render_frame_imgui()
 
   ImGui::ShowDemoWindow(&show_demo_window);
 
+  // right panel
   {
     ImGui::SetNextWindowPos(ImVec2(apdt.win_width - apdt.panel_wd, 0), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(apdt.panel_wd, apdt.panel_ht), ImGuiCond_Always);
     ImGui::Begin("RightPanel", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
-//    ImGui::Begin("RightPanel");
 
     if(ImGui::CollapsingHeader("Images"))
     {
@@ -605,7 +605,46 @@ extern "C" void ap_gui_render_frame_imgui()
 //      ImGui::ShowMetricsWindow();
 
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-    ImGui::End();
+    ImGui::End();  // end right panel
+  }
+
+  // Center view
+  {
+    ImGuiStyle &style = ImGui::GetStyle();
+    ImGuiWindowFlags window_flags = 0;
+    window_flags |= ImGuiWindowFlags_NoTitleBar;
+    window_flags |= ImGuiWindowFlags_NoMove;
+    window_flags |= ImGuiWindowFlags_NoResize;
+    window_flags |= ImGuiWindowFlags_NoBackground;
+    ImGui::SetNextWindowPos (ImVec2(apdt.center_x,  apdt.center_y),  ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(apdt.center_wd, apdt.center_ht), ImGuiCond_Always);
+    ImGui::Begin("LighttableCenter", 0, window_flags);
+
+
+    static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
+    ImVec2 outer_size = ImVec2(0.0f, 0.0f);
+    if (ImGui::BeginTable("table_scrolly", 3, flags, outer_size))
+    {
+        // Demonstrate using clipper for large vertical lists
+        ImGuiListClipper clipper;
+        clipper.Begin(1000);
+        while (clipper.Step())
+        {
+            for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
+            {
+                ImGui::TableNextRow();
+                for (int column = 0; column < 3; column++)
+                {
+                    ImGui::TableSetColumnIndex(column);
+                    ImGui::Text("Hello %d,%d", column, row);
+                }
+            }
+        }
+        ImGui::EndTable();
+    }
+
+
+    ImGui::End(); // end center lighttable
   }
 
   // Rendering

@@ -32,12 +32,15 @@ void ap_navigation_open(ap_navigation_widget_t *w)
 {
   if(!w->count)
   {
-    w->count = ap_db_get_subnodes(w->node, w->sep, &w->subnodes);
+    w->count = ap_db_get_subnodes(w->node, w->type, &w->subnodes);
     w->selected = 0;
   }
 
+  if (ImGui::Button("Open"))
+    ap_gui_switch_collection(w->node, w->type);
   char current[256];
-  snprintf(current, sizeof(current), "Current node: %s", w->node[0] ? w->node : "root");
+  snprintf(current, sizeof(current), "%s", w->node[0] ? w->node : "root");
+  ImGui::SameLine();
   ImGui::Text(current);
 
   ImGui::BeginChild("nodelist", ImVec2(0, ImGui::GetFontSize() * 20.0f), 0);

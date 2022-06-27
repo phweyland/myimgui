@@ -96,9 +96,12 @@ void impdt_work(uint32_t item, void *arg)
   }
   sqlite3_finalize(stmt);
 
-  sqlite3_exec(ap_db.handle, "INSERT INTO main.tagged_images SELECT * FROM library.tagged_images "
+  sqlite3_exec(ap_db.handle, "INSERT INTO main.tagged_images SELECT imgid, tagid, position "
+                             "FROM library.tagged_images "
                              "JOIN main.images ON id = imgid", NULL, NULL, NULL);
+
   sqlite3_exec(ap_db.handle, "UPDATE main.images SET id = temp", NULL, NULL, NULL);
+
   sqlite3_exec(ap_db.handle, "DROP INDEX IF EXISTS main.images_temp_index", NULL, NULL, NULL);
   sqlite3_exec(ap_db.handle, "ALTER TABLE main.images DROP COLUMN temp", NULL, NULL, NULL);
   snprintf(impdt->text, 256, "%s", "update done");
@@ -183,13 +186,14 @@ void ap_db_init()
   }
 }
 
-int ap_db_get_subnodes(const char *parent, const char *sep, ap_nodes_t **nodes)
+int ap_db_get_subnodes(const char *parent, const int type, ap_nodes_t **nodes)
 {
   if(!nodes)
     return 0;
   sqlite3_stmt *stmt;
-  if(sep[0] == '/')
+  if(type == 0)
   {
+    const char sep[4] = "/";
     if(parent[0])
     {
       sqlite3_prepare_v2(ap_db.handle,
@@ -217,8 +221,9 @@ int ap_db_get_subnodes(const char *parent, const char *sep, ap_nodes_t **nodes)
       sqlite3_bind_text(stmt, 1, sep, -1, SQLITE_STATIC);
     }
   }
-  else
+  else if (type == 1)
   {
+    const char sep[4] = "|";
     if(parent[0])
     {
       sqlite3_prepare_v2(ap_db.handle,
@@ -263,6 +268,59 @@ int ap_db_get_subnodes(const char *parent, const char *sep, ap_nodes_t **nodes)
     snprintf(node->name, sizeof(node->name), "%s", sqlite3_column_text(stmt, 0));
     node->parent = sqlite3_column_int(stmt, 1);
     node++;
+  }
+  sqlite3_finalize(stmt);
+  return count;
+}
+
+int ap_db_get_images(const char *node, const int type, ap_image_t **images)
+{
+  if(!images)
+    return 0;
+  sqlite3_stmt *stmt;
+  if(type == 0)
+  {
+    sqlite3_prepare_v2(ap_db.handle,
+                       "SELECT i.id, i.filename, r.root || f.folder as path FROM main.images AS i "
+                       "JOIN main.folders AS f ON f.id = i.folderid "
+                       "JOIN main.roots AS r ON r.id = f.rootid "
+                       "WHERE f.folder = ?1",
+                       -1, &stmt, NULL);
+  }
+  else if(type == 1)
+  {
+    const char sep[4] = "|";
+    sqlite3_prepare_v2(ap_db.handle,
+                       "SELECT i.id, i.filename, r.root || f.folder as path FROM main.images AS i "
+                       "JOIN main.tagged_images AS ti ON ti.imgid = i.id "
+                       "JOIN main.tags AS t ON t.id = ti.tagid "
+                       "JOIN main.folders AS f ON f.id = i.folderid "
+                       "JOIN main.roots AS r ON r.id = f.rootid "
+                       "WHERE t.name = ?1",
+                       -1, &stmt, NULL);
+  }
+  sqlite3_bind_text(stmt, 1, node, -1, SQLITE_STATIC);
+  int count = 0;
+
+  while(sqlite3_step(stmt) == SQLITE_ROW)
+    count++;
+
+  const char *err = sqlite3_errmsg(ap_db.handle);
+  if(!count)
+  {
+    sqlite3_finalize(stmt);
+    return 0;
+  }
+
+  sqlite3_reset(stmt);
+  *images = calloc(count, sizeof(ap_image_t));
+  ap_image_t *image = *images;
+  for(int i = 0; i < count && sqlite3_step(stmt) == SQLITE_ROW; i++)
+  {
+    image->imgid = sqlite3_column_int(stmt, 0);
+    snprintf(image->filename, sizeof(image->filename), "%s", sqlite3_column_text(stmt, 1));
+    snprintf(image->path, sizeof(image->path), "%s", sqlite3_column_text(stmt, 2));
+    image++;
   }
   sqlite3_finalize(stmt);
   return count;
