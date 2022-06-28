@@ -515,13 +515,13 @@ extern "C" void ap_gui_render_frame_imgui()
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
 
-  ImGui::ShowDemoWindow(&show_demo_window);
+//  ImGui::ShowDemoWindow(&show_demo_window);
 
   // right panel
   {
     ImGui::SetNextWindowPos(ImVec2(apdt.win_width - apdt.panel_wd, 0), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(apdt.panel_wd, apdt.panel_ht), ImGuiCond_Always);
-    ImGui::Begin("RightPanel", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize);
+    ImGui::Begin("RightPanel", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
 
     if(ImGui::CollapsingHeader("Images"))
     {
@@ -605,6 +605,14 @@ extern "C" void ap_gui_render_frame_imgui()
 //      ImGui::ShowMetricsWindow();
 
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
+    ImVec2 window_size = ImGui::GetWindowSize();
+    if(window_size.x != apdt.panel_wd)
+    {
+      apdt.panel_wd = window_size.x;
+      dt_rc_set_int(&apdt.rc, "gui/right_panel_width", apdt.panel_wd);
+      g_SwapChainRebuild = 1;
+    }
     ImGui::End();  // end right panel
   }
 
