@@ -190,6 +190,7 @@ int ap_db_get_subnodes(const char *parent, const int type, ap_nodes_t **nodes)
 {
   if(!nodes)
     return 0;
+  *nodes = 0;
   sqlite3_stmt *stmt;
   if(type == 0)
   {
@@ -277,6 +278,7 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
 {
   if(!images)
     return 0;
+  *images = 0;
   sqlite3_stmt *stmt;
   if(type == 0)
   {

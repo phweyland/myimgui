@@ -5,6 +5,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <stdlib.h>
+#include <time.h>
 
 const char *ap_name = "apdt";
 apdt_t apdt;
@@ -69,5 +70,10 @@ void ap_gui_cleanup()
 
 void ap_gui_switch_collection(const char *node, const int type)
 {
+  if(apdt.images)
+    free(apdt.images);
+  clock_t beg = clock();
   apdt.image_cnt = ap_db_get_images(node, type, &apdt.images);
+  clock_t end = clock();
+  dt_log(s_log_perf, "[db] ran get images in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
 }

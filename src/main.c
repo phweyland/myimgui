@@ -8,12 +8,13 @@
 #include <sys/stat.h>
 #include <stdlib.h>
 
-int main(int, char**)
+int main(int argc, char *argv[])
 {
   char basedir[1024];
   snprintf(basedir, sizeof(basedir), "%s/.config/%s", getenv("HOME"), ap_name);
   mkdir(basedir, 0755);
   dt_log_init(s_log_err|s_log_gui);
+  dt_log_init_arg(argc, argv);
   threads_global_init();
   dt_set_signal_handlers();
   if(ap_gui_init())

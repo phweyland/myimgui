@@ -635,16 +635,21 @@ extern "C" void ap_gui_render_frame_imgui()
     {
         // Demonstrate using clipper for large vertical lists
         ImGuiListClipper clipper;
-        clipper.Begin(1000);
+        clipper.Begin(apdt.image_cnt);
+        int i = 0;
         while (clipper.Step())
         {
-            for (int row = clipper.DisplayStart; row < clipper.DisplayEnd; row++)
+            for (int row = clipper.DisplayStart; i < apdt.image_cnt && row < clipper.DisplayEnd; row++)
             {
                 ImGui::TableNextRow();
-                for (int column = 0; column < 3; column++)
+                for (int column = 0; i< apdt.image_cnt && column < 3; column++)
                 {
                     ImGui::TableSetColumnIndex(column);
-                    ImGui::Text("Hello %d,%d", column, row);
+                    char img[256];
+                    ap_image_t *images = apdt.images;
+                    snprintf(img, sizeof(img), "%s", images[i].filename);
+                    ImGui::Text(img);
+                    i++;
                 }
             }
         }

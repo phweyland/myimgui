@@ -1,10 +1,12 @@
 #include "widget_navigation.hh"
 #include "imgui.h"
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 extern "C" {
 #include "../db/rc.h"
 #include "../gui/gui.h"
+#include "../core/log.h"
 }
 
 void ap_navigation_init(ap_navigation_widget_t *w, const int type)
@@ -32,7 +34,10 @@ void ap_navigation_open(ap_navigation_widget_t *w)
 {
   if(!w->count)
   {
+    clock_t beg = clock();
     w->count = ap_db_get_subnodes(w->node, w->type, &w->subnodes);
+    clock_t end = clock();
+    dt_log(s_log_perf, "[db] ran get nodes in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
     w->selected = 0;
   }
 
