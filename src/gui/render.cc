@@ -563,30 +563,45 @@ extern "C" void ap_gui_render_frame_imgui()
         }
         ImGui::EndCombo();
       }
-    }
 
-    if(ImGui::CollapsingHeader("Import darktable"))
-    {
-      if(ImGui::Button("Darktable folder"))
+      if(ImGui::Button("Vkdt folder"))
       {
-        const char* dt_dir = dt_rc_get(&apdt.rc, "darktable", "");
+        const char* dt_dir = dt_rc_get(&apdt.rc, "vkdt_folder", "");
         if(dt_dir[0])
           snprintf(filebrowser.cwd, sizeof(filebrowser.cwd), "%s", dt_dir);
         dt_filebrowser_open(&filebrowser);
       }
       if(dt_filebrowser_display(&filebrowser, 'd'))
       { // "ok" pressed
-        dt_rc_set(&apdt.rc, "darktable", filebrowser.cwd);
+        dt_rc_set(&apdt.rc, "vkdt_folder", filebrowser.cwd);
         dt_filebrowser_cleanup(&filebrowser); // reset all but cwd
       }
       ImGui::SameLine();
-      ImGui::Text("%s", dt_rc_get(&apdt.rc, "darktable", ""));
+      ImGui::Text("%s", dt_rc_get(&apdt.rc, "vkdt_folder", ""));
+    }
+
+    if(ImGui::CollapsingHeader("Import darktable"))
+    {
+      if(ImGui::Button("Darktable folder"))
+      {
+        const char* dt_dir = dt_rc_get(&apdt.rc, "darktable_folder", "");
+        if(dt_dir[0])
+          snprintf(filebrowser.cwd, sizeof(filebrowser.cwd), "%s", dt_dir);
+        dt_filebrowser_open(&filebrowser);
+      }
+      if(dt_filebrowser_display(&filebrowser, 'd'))
+      { // "ok" pressed
+        dt_rc_set(&apdt.rc, "darktable_folder", filebrowser.cwd);
+        dt_filebrowser_cleanup(&filebrowser); // reset all but cwd
+      }
+      ImGui::SameLine();
+      ImGui::Text("%s", dt_rc_get(&apdt.rc, "darktable_folder", ""));
 
       if(ImGui::Button("Import"))
       {
         if(!threads_task_running(impdt_taskid))
         {
-          const char* dt_dir = dt_rc_get(&apdt.rc, "darktable", "");
+          const char* dt_dir = dt_rc_get(&apdt.rc, "darktable_folder", "");
           if(dt_dir[0])
           {
             impdt_abort = 0;
@@ -628,31 +643,37 @@ extern "C" void ap_gui_render_frame_imgui()
     ImGui::SetNextWindowSize(ImVec2(apdt.center_wd, apdt.center_ht), ImGuiCond_Always);
     ImGui::Begin("LighttableCenter", 0, window_flags);
 
-
     static ImGuiTableFlags flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuter | ImGuiTableFlags_BordersV | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable | ImGuiTableFlags_Hideable;
     ImVec2 outer_size = ImVec2(0.0f, 0.0f);
     if (ImGui::BeginTable("table_scrolly", 3, flags, outer_size))
     {
-        // Demonstrate using clipper for large vertical lists
-        ImGuiListClipper clipper;
-        clipper.Begin(apdt.image_cnt);
-        int i = 0;
-        while (clipper.Step())
+      // Demonstrate using clipper for large vertical lists
+      ImGuiListClipper clipper;
+      clipper.Begin(apdt.image_cnt);
+      int i = 0;
+      while (clipper.Step())
+      {
+        for (int row = clipper.DisplayStart; i < apdt.image_cnt && row < clipper.DisplayEnd; row++)
         {
-            for (int row = clipper.DisplayStart; i < apdt.image_cnt && row < clipper.DisplayEnd; row++)
+          ImGui::TableNextRow();
+          for (int column = 0; i< apdt.image_cnt && column < 3; column++)
+          {
+            ImGui::TableSetColumnIndex(column);
+            char img[256];
+            ap_image_t *images = apdt.images;
+            snprintf(img, sizeof(img), "%s", images[i].filename);
+            if (ImGui::Button(img))
             {
-                ImGui::TableNextRow();
-                for (int column = 0; i< apdt.image_cnt && column < 3; column++)
-                {
-                    ImGui::TableSetColumnIndex(column);
-                    char img[256];
-                    ap_image_t *images = apdt.images;
-                    snprintf(img, sizeof(img), "%s", images[i].filename);
-                    ImGui::Text(img);
-                    i++;
-                }
+              printf("click on %s/%s\n", images[i].path, images[i].filename);
+              char cmd[256];
+              snprintf(cmd, sizeof(cmd), "%svkdt %s/%s",
+                       dt_rc_get(&apdt.rc, "vkdt_folder", ""), images[i].path, images[i].filename);
+              FILE *handle = popen(cmd, "r");
             }
+            i++;
+          }
         }
+      }
         ImGui::EndTable();
     }
 
