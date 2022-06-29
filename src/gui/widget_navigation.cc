@@ -23,8 +23,6 @@ void ap_navigation_init(ap_navigation_widget_t *w, const int type)
 
 static void _update_node(ap_navigation_widget_t *w)
 {
-  dt_rc_set(&apdt.rc, w->type == 0 ? "gui/last_folder" : "gui/last_tag", w->node);
-  // ..and then cleaning up the cache
   if(w->subnodes)
     free(w->subnodes);
   w->subnodes = 0;

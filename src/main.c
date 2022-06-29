@@ -17,12 +17,12 @@ int main(int argc, char *argv[])
   dt_log_init_arg(argc, argv);
   threads_global_init();
   dt_set_signal_handlers();
+  ap_db_init();
   if(ap_gui_init())
   {
     dt_log(s_log_gui|s_log_err, "failed to init gui/swapchain");
     return 1;
   }
-  ap_db_init();
 
   // Main loop
   while (!glfwWindowShouldClose(apdt.window))

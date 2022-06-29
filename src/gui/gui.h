@@ -31,6 +31,8 @@ typedef struct apdt_t
   int panel_wd;
   int panel_ht;
 
+  char node[512];
+  int type;
   int image_cnt;
   ap_image_t *images;
 

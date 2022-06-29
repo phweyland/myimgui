@@ -55,6 +55,9 @@ int ap_gui_init()
   apdt.win_height = mode->height; //1080;
   ap_gui_init_imgui();
 
+  const int type = dt_rc_get_int(&apdt.rc, "gui/last_collection_type", 0);
+  const char *node = dt_rc_get(&apdt.rc, type == 0 ? "gui/last_folder" : "gui/last_tag", "");
+  ap_gui_switch_collection(node, type);
   return 0;
 }
 
@@ -72,8 +75,13 @@ void ap_gui_switch_collection(const char *node, const int type)
 {
   if(apdt.images)
     free(apdt.images);
+  snprintf(apdt.node, sizeof(apdt.node), "%s", node);
+  apdt.type = type;
   clock_t beg = clock();
   apdt.image_cnt = ap_db_get_images(node, type, &apdt.images);
   clock_t end = clock();
   dt_log(s_log_perf, "[db] ran get images in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
+  printf("type %d node %s\n", type, node);
+  dt_rc_set(&apdt.rc, type == 0 ? "gui/last_folder" : "gui/last_tag", apdt.node);
+  dt_rc_set_int(&apdt.rc, "gui/last_collection_type", apdt.type);
 }
