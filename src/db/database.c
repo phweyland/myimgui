@@ -136,7 +136,7 @@ static void _create_schema(ap_db_t *db)
 
   sqlite3_exec(db->handle, "CREATE TABLE main.tags (id INTEGER PRIMARY KEY, name VARCHAR, "
                            "synonyms VARCHAR, flags INTEGER)", NULL, NULL, NULL);
-  sqlite3_exec(db->handle, "CREATE UNIQUE INDEX data.tags_name_idx ON tags (name)", NULL, NULL, NULL);
+  sqlite3_exec(db->handle, "CREATE UNIQUE INDEX main.tags_name_idx ON tags (name)", NULL, NULL, NULL);
 
   sqlite3_exec(db->handle, "CREATE TABLE main.images (id INTEGER PRIMARY KEY, "
                            "folderid INTEGER, filename VARCHAR, "

@@ -18,6 +18,7 @@ void ap_navigation_init(ap_navigation_widget_t *w, const int type)
                                : dt_rc_get(&apdt.rc, "gui/last_tag", "");
   if(node[0])
     snprintf(w->node, sizeof(w->node), "%s", node);
+  w->count = -1u;
 }
 
 static void _update_node(ap_navigation_widget_t *w)
@@ -27,12 +28,12 @@ static void _update_node(ap_navigation_widget_t *w)
   if(w->subnodes)
     free(w->subnodes);
   w->subnodes = 0;
-  w->count = 0;
+  w->count = -1u;
 }
 
 void ap_navigation_open(ap_navigation_widget_t *w)
 {
-  if(!w->count)
+  if(w->count == -1u)
   {
     clock_t beg = clock();
     w->count = ap_db_get_subnodes(w->node, w->type, &w->subnodes);
