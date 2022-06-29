@@ -13,6 +13,14 @@ typedef struct ap_image_t
   char path[512];
 } ap_image_t;
 
+typedef struct dt_col_dt
+{
+  char node[512];
+  int type;
+  int image_cnt;
+  ap_image_t *images;
+} dt_col_t;
+
 typedef struct apdt_t
 {
   GLFWwindow *window;
@@ -31,10 +39,7 @@ typedef struct apdt_t
   int panel_wd;
   int panel_ht;
 
-  char node[512];
-  int type;
-  int image_cnt;
-  ap_image_t *images;
+  dt_col_t col;           // current collection
 
   dt_rc_t rc;            // config file
   ap_db_t *db;

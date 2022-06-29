@@ -73,15 +73,15 @@ void ap_gui_cleanup()
 
 void ap_gui_switch_collection(const char *node, const int type)
 {
-  if(apdt.images)
-    free(apdt.images);
-  snprintf(apdt.node, sizeof(apdt.node), "%s", node);
-  apdt.type = type;
+  if(apdt.col.images)
+    free(apdt.col.images);
+  snprintf(apdt.col.node, sizeof(apdt.col.node), "%s", node);
+  apdt.col.type = type;
   clock_t beg = clock();
-  apdt.image_cnt = ap_db_get_images(node, type, &apdt.images);
+  apdt.col.image_cnt = ap_db_get_images(node, type, &apdt.col.images);
   clock_t end = clock();
   dt_log(s_log_perf, "[db] ran get images in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
   printf("type %d node %s\n", type, node);
-  dt_rc_set(&apdt.rc, type == 0 ? "gui/last_folder" : "gui/last_tag", apdt.node);
-  dt_rc_set_int(&apdt.rc, "gui/last_collection_type", apdt.type);
+  dt_rc_set(&apdt.rc, type == 0 ? "gui/last_folder" : "gui/last_tag", apdt.col.node);
+  dt_rc_set_int(&apdt.rc, "gui/last_collection_type", apdt.col.type);
 }
