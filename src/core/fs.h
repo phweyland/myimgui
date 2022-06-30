@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#define _GNU_SOURCE
+#include <unistd.h>
 
 static inline int // returns zero on success
 fs_copy(

@@ -61,9 +61,6 @@ void impdt_work(uint32_t item, void *arg)
   sqlite3_exec(ap_db.handle, "DELETE FROM main.folders", NULL, NULL, NULL);
   sqlite3_exec(ap_db.handle, "DELETE FROM main.tagged_images", NULL, NULL, NULL);
 
-  sqlite3_exec(ap_db.handle, "ALTER TABLE main.images ADD COLUMN temp INTEGER", NULL, NULL, NULL);
-  sqlite3_exec(ap_db.handle, "CREATE UNIQUE INDEX main.images_temp_index ON images (temp)", NULL, NULL, NULL);
-
   sqlite3_exec(ap_db.handle, "INSERT INTO main.folders (id, rootid, folder) "
                              "SELECT f.id, r.id, SUBSTR(f.folder, LENGTH(r.root)+1) "
                              "FROM library.film_rolls AS f "
@@ -78,9 +75,11 @@ void impdt_work(uint32_t item, void *arg)
   {
     const char *filename = sqlite3_column_text(stmt, 2);
     const int imgid = sqlite3_column_int(stmt, 0);
-    const int hash = murmur_hash3(filename, strlen(filename), 1337);
+    char fullname[512];
+    snprintf(fullname, sizeof(fullname), "%s/%s.cfg", sqlite3_column_text(stmt, 3), filename);
+    const uint32_t hash = murmur_hash3(fullname, strlen(fullname), 1337);
     sqlite3_stmt *stmt2;
-    sqlite3_prepare_v2(ap_db.handle, "INSERT INTO main.images (id, folderid, filename, temp) "
+    sqlite3_prepare_v2(ap_db.handle, "INSERT INTO main.images (id, folderid, filename, hash) "
                                      "VALUES (?1, ?2, ?3, ?4)", -1, &stmt2, NULL);
     sqlite3_bind_int(stmt2, 1, imgid);
     sqlite3_bind_int(stmt2, 2, sqlite3_column_int(stmt, 1));
@@ -100,10 +99,6 @@ void impdt_work(uint32_t item, void *arg)
                              "FROM library.tagged_images "
                              "JOIN main.images ON id = imgid", NULL, NULL, NULL);
 
-  sqlite3_exec(ap_db.handle, "UPDATE main.images SET id = temp", NULL, NULL, NULL);
-
-  sqlite3_exec(ap_db.handle, "DROP INDEX IF EXISTS main.images_temp_index", NULL, NULL, NULL);
-  sqlite3_exec(ap_db.handle, "ALTER TABLE main.images DROP COLUMN temp", NULL, NULL, NULL);
   snprintf(impdt->text, 256, "%s", "update done");
 
   sqlite3_prepare_v2(ap_db.handle, "DETACH DATABASE library", -1, &stmt, NULL);
@@ -137,11 +132,11 @@ static void _create_schema(ap_db_t *db)
   sqlite3_exec(db->handle, "CREATE TABLE main.tags (id INTEGER PRIMARY KEY, name VARCHAR, "
                            "synonyms VARCHAR, flags INTEGER)", NULL, NULL, NULL);
   sqlite3_exec(db->handle, "CREATE UNIQUE INDEX main.tags_name_idx ON tags (name)", NULL, NULL, NULL);
-
-  sqlite3_exec(db->handle, "CREATE TABLE main.images (id INTEGER PRIMARY KEY, "
-                           "folderid INTEGER, filename VARCHAR, "
+  sqlite3_exec(db->handle, "CREATE TABLE main.images (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                           "folderid INTEGER, filename VARCHAR, hash INTEGER,"
                            "FOREIGN KEY(folderid) REFERENCES folders(id) ON DELETE CASCADE ON UPDATE CASCADE)", NULL, NULL, NULL);
   sqlite3_exec(db->handle, "CREATE INDEX main.images_folderid_index ON images (folderid, filename)", NULL, NULL, NULL);
+  sqlite3_exec(db->handle, "CREATE UNIQUE INDEX main.images_hash_index ON images (hash)", NULL, NULL, NULL);
 
   sqlite3_exec(db->handle, "CREATE TABLE main.tagged_images (imgid INTEGER, tagid INTEGER, position INTEGER, "
                            "PRIMARY KEY (imgid, tagid),"
@@ -283,7 +278,7 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
   if(type == 0)
   {
     sqlite3_prepare_v2(ap_db.handle,
-                       "SELECT i.id, i.filename, r.root || f.folder as path FROM main.images AS i "
+                       "SELECT i.id, i.filename, r.root || f.folder as path, i.hash FROM main.images AS i "
                        "JOIN main.folders AS f ON f.id = i.folderid "
                        "JOIN main.roots AS r ON r.id = f.rootid "
                        "WHERE f.folder = ?1",
@@ -293,7 +288,7 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
   {
     const char sep[4] = "|";
     sqlite3_prepare_v2(ap_db.handle,
-                       "SELECT i.id, i.filename, r.root || f.folder as path FROM main.images AS i "
+                       "SELECT i.id, i.filename, r.root || f.folder as path, i.hash FROM main.images AS i "
                        "JOIN main.tagged_images AS ti ON ti.imgid = i.id "
                        "JOIN main.tags AS t ON t.id = ti.tagid "
                        "JOIN main.folders AS f ON f.id = i.folderid "
@@ -322,6 +317,7 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
     image->imgid = sqlite3_column_int(stmt, 0);
     snprintf(image->filename, sizeof(image->filename), "%s", sqlite3_column_text(stmt, 1));
     snprintf(image->path, sizeof(image->path), "%s", sqlite3_column_text(stmt, 2));
+    image->hash = sqlite3_column_int(stmt, 3);
     image++;
   }
   sqlite3_finalize(stmt);
