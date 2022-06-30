@@ -16,6 +16,7 @@
     along with darktable.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
+#include "../gui/gui.h"
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -35,8 +36,9 @@ dt_sigsegv_handler(int param)
   fprintf(f, "this is apdt reporting a crash:\n\n");
   fclose(f);
 
-  char pid_arg[100], log_arg[PATH_MAX+100];
+  char pid_arg[100], com_arg[PATH_MAX+100], log_arg[PATH_MAX+100];
   snprintf(pid_arg, sizeof(pid_arg), "%d", (int)getpid());
+  snprintf(com_arg, sizeof(com_arg), "%s/gdb_commands", apdt.basedir);
   snprintf(log_arg, sizeof(log_arg), "set logging file %s", filename);
 
   int delete_file = 0;
@@ -51,7 +53,7 @@ dt_sigsegv_handler(int param)
     }
     else
     {
-      if(execlp("gdb", "gdb", "apdt", pid_arg, "-batch", "-ex", log_arg, "-x", NULL))
+      if(execlp("gdb", "gdb", "apdt", pid_arg, "-batch", "-ex", log_arg, "-x", com_arg, NULL))
       {
         delete_file = 1;
         fprintf(stderr, "an error occurred while trying to execute gdb."

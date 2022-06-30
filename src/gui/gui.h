@@ -43,6 +43,7 @@ typedef struct apdt_t
 
   dt_rc_t rc;            // config file
   ap_db_t *db;
+  char basedir[1024];
 } apdt_t;
 
 extern apdt_t apdt;

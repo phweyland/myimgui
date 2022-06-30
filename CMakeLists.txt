@@ -42,7 +42,17 @@ find_package(Sqlite3 3.15 REQUIRED)
 include_directories(SYSTEM ${Sqlite3_INCLUDE_DIRS})
 list(APPEND LIBRARIES ${Sqlite3_LIBRARIES})
 
-file(GLOB SOURCE_FILES src/*.c src/gui/*.cc src/gui/*.c src/core/*.c src/db/*.c)
+file(GLOB SOURCE_FILES
+      src/main.c
+      src/gui/gui.c
+      src/gui/render.cc
+      src/gui/themes.cc
+      src/gui/widget_filebrowser.cc
+      src/gui/widget_navigation.cc
+      src/db/database.c
+      src/db/rc.c
+      src/core/log.c
+      src/core/threads.c)
 #file(GLOB HEADER_FILES *.h core/*.h gui/*.h gui/*.hh db/*.h)
 
 add_executable(myap ${SOURCE_FILES} ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp ${IMGUI_DIR}/imgui.cpp ${IMGUI_DIR}/imgui_draw.cpp ${IMGUI_DIR}/imgui_demo.cpp ${IMGUI_DIR}/imgui_tables.cpp ${IMGUI_DIR}/imgui_widgets.cpp)
