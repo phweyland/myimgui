@@ -68,16 +68,17 @@ void impdt_work(uint32_t item, void *arg)
 
   sqlite3_exec(ap_db.handle, "INSERT INTO main.tags SELECT * FROM data.tags", NULL, NULL, NULL);
 
-  sqlite3_prepare_v2(ap_db.handle, "SELECT id, film_id, filename FROM library.images", -1, &stmt, NULL);
+  sqlite3_prepare_v2(ap_db.handle, "SELECT i.id, i.film_id, i.filename, f.folder FROM library.images AS i "
+                                   "JOIN library.film_rolls AS f ON f.id = i.film_id", -1, &stmt, NULL);
   int count = 0;
   int faulty = 0;
   while(sqlite3_step(stmt) == SQLITE_ROW)
   {
     const char *filename = sqlite3_column_text(stmt, 2);
     const int imgid = sqlite3_column_int(stmt, 0);
-    char fullname[512];
+    char fullname[2048];
     snprintf(fullname, sizeof(fullname), "%s/%s.cfg", sqlite3_column_text(stmt, 3), filename);
-    const uint32_t hash = murmur_hash3(fullname, strlen(fullname), 1337);
+    const uint32_t hash = murmur_hash3(fullname, strnlen(fullname, sizeof(fullname)), 1337);
     sqlite3_stmt *stmt2;
     sqlite3_prepare_v2(ap_db.handle, "INSERT INTO main.images (id, folderid, filename, hash) "
                                      "VALUES (?1, ?2, ?3, ?4)", -1, &stmt2, NULL);

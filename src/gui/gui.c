@@ -85,7 +85,6 @@ void ap_gui_switch_collection(const char *node, const int type)
   apdt.col.image_cnt = ap_db_get_images(node, type, &apdt.col.images);
   clock_t end = clock();
   dt_log(s_log_perf, "[db] ran get images in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
-  printf("type %d node %s\n", type, node);
   dt_rc_set(&apdt.rc, type == 0 ? "gui/last_folder" : "gui/last_tag", apdt.col.node);
   dt_rc_set_int(&apdt.rc, "gui/last_collection_type", apdt.col.type);
 }

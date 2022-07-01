@@ -1,6 +1,8 @@
 #pragma once
 #include "../db/rc.h"
 #include "../db/database.h"
+#include "../db/thumbnails.h"
+#include "../core/qvk_util.h"
 
 // forward declare
 typedef struct GLFWwindow GLFWwindow;
@@ -12,19 +14,29 @@ typedef struct ap_image_t
   char filename[252]; // filename
   char path[512];
   uint32_t hash;
+  uint32_t thumbnail;
 } ap_image_t;
 
-typedef struct dt_col_dt
+typedef struct ap_col_t
 {
   char node[512];
   int type;
   int image_cnt;
   ap_image_t *images;
-} dt_col_t;
+} ap_col_t;
 
 typedef struct apdt_t
 {
   GLFWwindow *window;
+  VkDevice device;
+  VkPhysicalDevice physical_device;
+  VkPhysicalDeviceMemoryProperties mem_properties;
+  VkSampler tex_sampler_nearest;
+  VkSampler tex_sampler;
+  VkQueue queue;
+  VkDeviceMemory UploadBufferMemory;
+  VkBuffer UploadBuffer;
+
   int theme;
 
   int win_width;
@@ -40,7 +52,8 @@ typedef struct apdt_t
   int panel_wd;
   int panel_ht;
 
-  dt_col_t col;           // current collection
+  ap_col_t col;           // current collection
+  dt_thumbnails_t  thumbnails;    // for light table mode
 
   dt_rc_t rc;            // config file
   ap_db_t *db;
@@ -54,3 +67,4 @@ int ap_gui_init();
 void ap_gui_cleanup();
 void ap_gui_window_resize();
 void ap_gui_switch_collection(const char *node, const int type);
+void ap_gui_get_buffer(VkCommandPool *command_pool, VkCommandBuffer *command_buffer);

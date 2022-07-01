@@ -32,6 +32,15 @@ add_definitions("-DIMGUI_VULKAN_DEBUG_REPORT")
 # Use vulkan headers from glfw:
 include_directories(${GLFW_DIR}/deps)
 
+# zlib
+find_package(ZLIB REQUIRED)
+if(ZLIB_FOUND)
+  include_directories(SYSTEM ${ZLIB_INCLUDE_DIRS})
+  list(APPEND LIBRARIES ${ZLIB_LIBRARIES})
+else()
+  message(SEND_ERROR "Did not find ZLIB!")
+endif()
+
 # glib
 #find_package(GLib)
 #include_directories(SYSTEM ${GLib_INCLUDE_DIRS})
@@ -51,8 +60,11 @@ file(GLOB SOURCE_FILES
       src/gui/widget_navigation.cc
       src/db/database.c
       src/db/rc.c
+      src/db/alloc.c
+      src/db/thumbnails.c
       src/core/log.c
-      src/core/threads.c)
+      src/core/threads.c
+      src/core/qvk_util.c)
 #file(GLOB HEADER_FILES *.h core/*.h gui/*.h gui/*.hh db/*.h)
 
 add_executable(myap ${SOURCE_FILES} ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp ${IMGUI_DIR}/imgui.cpp ${IMGUI_DIR}/imgui_draw.cpp ${IMGUI_DIR}/imgui_demo.cpp ${IMGUI_DIR}/imgui_tables.cpp ${IMGUI_DIR}/imgui_widgets.cpp)
