@@ -334,6 +334,7 @@ static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data)
     info.pClearValues = &wd->ClearValue;
     vkCmdBeginRenderPass(fd->CommandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
   }
+  wd->ClearValue = (VkClearValue){{.float32={0.18f, 0.18f, 0.18f, 1.0f}}};
 
   // Record dear imgui primitives into command buffer
   ImGui_ImplVulkan_RenderDrawData(draw_data, fd->CommandBuffer);
@@ -460,6 +461,59 @@ extern "C" int ap_gui_init_imgui()
   init_info.CheckVkResultFn = check_vk_result;
   ImGui_ImplVulkan_Init(&init_info, wd->RenderPass);
 
+  char tmp[PATH_MAX+100] = {0};
+  {
+    int monitors_cnt;
+    GLFWmonitor** monitors = glfwGetMonitors(&monitors_cnt);
+    if(monitors_cnt > 2)
+      fprintf(stderr, "[gui] you have more than 2 monitors attached! only the first two will be colour managed!\n");
+    const char *name0 = glfwGetMonitorName(monitors[0]);
+    const char *name1 = glfwGetMonitorName(monitors[MIN(monitors_cnt-1, 1)]);
+    int xpos0, xpos1, ypos;
+    glfwGetMonitorPos(monitors[0], &xpos0, &ypos);
+    glfwGetMonitorPos(monitors[MIN(monitors_cnt-1, 1)], &xpos1, &ypos);
+    float gamma0[] = {1.0f/2.2f, 1.0f/2.2f, 1.0f/2.2f};
+    float rec2020_to_dspy0[] = { // to linear sRGB D65
+       1.66022709, -0.58754775, -0.07283832,
+      -0.12455356,  1.13292608, -0.0083496,
+      -0.01815511, -0.100603  ,  1.11899813 };
+    float gamma1[] = {1.0f/2.2f, 1.0f/2.2f, 1.0f/2.2f};
+    float rec2020_to_dspy1[] = { // to linear sRGB D65
+       1.66022709, -0.58754775, -0.07283832,
+      -0.12455356,  1.13292608, -0.0083496,
+      -0.01815511, -0.100603  ,  1.11899813 };
+
+    const char* dt_dir = dt_rc_get(&apdt.rc, "vkdt_folder", "");
+    snprintf(tmp, sizeof(tmp), "%s/display.%s", dt_dir, name0);
+    FILE *f = fopen(tmp, "r");
+    if(f)
+    {
+      fscanf(f, "%f %f %f\n", gamma0, gamma0+1, gamma0+2);
+      fscanf(f, "%f %f %f\n", rec2020_to_dspy0+0, rec2020_to_dspy0+1, rec2020_to_dspy0+2);
+      fscanf(f, "%f %f %f\n", rec2020_to_dspy0+3, rec2020_to_dspy0+4, rec2020_to_dspy0+5);
+      fscanf(f, "%f %f %f\n", rec2020_to_dspy0+6, rec2020_to_dspy0+7, rec2020_to_dspy0+8);
+      fclose(f);
+    }
+    else fprintf(stderr, "[gui] no display profile file display.%s, using sRGB!\n", name0);
+    snprintf(tmp, sizeof(tmp), "%s/display.%s", dt_dir, name1);
+    f = fopen(tmp, "r");
+    if(f)
+    {
+      fscanf(f, "%f %f %f\n", gamma1, gamma1+1, gamma1+2);
+      fscanf(f, "%f %f %f\n", rec2020_to_dspy1+0, rec2020_to_dspy1+1, rec2020_to_dspy1+2);
+      fscanf(f, "%f %f %f\n", rec2020_to_dspy1+3, rec2020_to_dspy1+4, rec2020_to_dspy1+5);
+      fscanf(f, "%f %f %f\n", rec2020_to_dspy1+6, rec2020_to_dspy1+7, rec2020_to_dspy1+8);
+      fclose(f);
+    }
+    else fprintf(stderr, "[gui] no display profile file display.%s, using sRGB!\n", name1);
+    int bitdepth = 8; // the display output will be dithered according to this
+    if(g_MainWindowData.SurfaceFormat.format == VK_FORMAT_A2R10G10B10_UNORM_PACK32 ||
+       g_MainWindowData.SurfaceFormat.format == VK_FORMAT_A2B10G10R10_UNORM_PACK32)
+      bitdepth = 10;
+    ImGui_ImplVulkan_SetDisplayProfile(gamma0, rec2020_to_dspy0, gamma1, rec2020_to_dspy1, xpos1, bitdepth);
+  }
+
+
   // Load Fonts
   // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
   // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
@@ -533,6 +587,10 @@ extern "C" void ap_gui_render_frame_imgui()
       ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, apdt.physical_device, apdt.device, &g_MainWindowData, g_QueueFamily, g_Allocator, apdt.win_width, apdt.win_height, g_MinImageCount);
       g_MainWindowData.FrameIndex = 0;
       g_SwapChainRebuild = false;
+      ImGuiStyle & style = ImGui::GetStyle();
+      style.WindowPadding = ImVec2(apdt.win_width*0.001, apdt.win_width*0.001);
+      style.FramePadding  = ImVec2(apdt.win_width*0.002, apdt.win_width*0.002);
+      style.ItemSpacing   = ImVec2(apdt.win_width*0.002, apdt.win_width*0.002);
     }
   }
 
@@ -719,40 +777,10 @@ extern "C" void ap_gui_render_frame_imgui()
           float w = apdt.thumbnails.thumb[tid].wd * scale;
           float h = apdt.thumbnails.thumb[tid].ht * scale;
 
-/*          if (ImGui::Button(img))
-          {
-            printf("click on %s/%s\n", images[i].path, images[i].filename);
-            char cmd[256];
-            snprintf(cmd, sizeof(cmd), "%svkdt %s/%s",
-                     dt_rc_get(&apdt.rc, "vkdt_folder", ""), images[i].path, images[i].filename);
-            FILE *handle = popen(cmd, "r");
-          }
-*/
-
-/*          ImGui::PushID(i);
-          int frame_padding = -1 + i;                             // -1 == uses default padding (style.FramePadding)
-          ImVec2 size = ImVec2(w, h);                              // Size of the image we want to make visible
-          ImVec2 uv0 = ImVec2(0.0f, 0.0f);                        // UV coordinates for lower-left
-          ImVec2 uv1 = ImVec2(1.0f, 1.0f);
-//          ImVec2 uv1 = ImVec2(32.0f / my_tex_w, 32.0f / my_tex_h);// UV coordinates for (32,32) in our texture
-          ImVec4 bg_col = ImVec4(0.5f,0.5f,0.5f,1.0f);         // Black background
-          ImVec4 tint_col = ImVec4(1.0f,1.0f,1.0f,1.0f);       // No tint
-          if (ImGui::ImageButton(apdt.thumbnails.thumb[tid].dset, size,
-                                uv0, uv1, border, bg_col, tint_col))
-          {
-            printf("click on %s/%s\n", images[i].path, images[i].filename);
-            char cmd[256];
-            snprintf(cmd, sizeof(cmd), "%svkdt %s/%s",
-                     dt_rc_get(&apdt.rc, "vkdt_folder", ""), images[i].path, images[i].filename);
-            FILE *handle = popen(cmd, "r");
-
-          }
-          ImGui::PopID();
-*/
           if(ImGui::ThumbnailImage(
               i+k,
               apdt.thumbnails.thumb[tid].dset,
-              ImVec2(200, 200),
+              ImVec2(w, h),
               ImVec2(0,0), ImVec2(1,1),
               border,
               ImVec4(0.5f,0.5f,0.5f,1.0f),
@@ -762,13 +790,14 @@ extern "C" void ap_gui_render_frame_imgui()
               img,
               0)) // nav_focus
           {
-            printf("click on %s/%s\n", images[i].path, images[i].filename);
             char cmd[256];
             snprintf(cmd, sizeof(cmd), "%svkdt %s/%s",
                      dt_rc_get(&apdt.rc, "vkdt_folder", ""), images[i+k].path, images[i+k].filename);
             FILE *handle = popen(cmd, "r");
 
           }
+
+//          ImGui::PopStyleColor(2);
 
 //          if(vkdt.db.collection[i] == dt_db_current_imgid(&vkdt.db))
 //            vkdt.wstate.set_nav_focus = MAX(0, vkdt.wstate.set_nav_focus-1);
@@ -831,13 +860,15 @@ extern "C" void ap_gui_render_frame_imgui()
   const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
   if (!is_minimized)
   {
-    wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
-    wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
-    wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
-    wd->ClearValue.color.float32[3] = clear_color.w;
+//    wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
+//    wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
+//    wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
+//    wd->ClearValue.color.float32[3] = clear_color.w;
+//    wd->ClearValue.color.float32[3] = 1;
     FrameRender(wd, draw_data);
     FramePresent(wd);
   }
+
 }
 
 extern "C" void ap_gui_cleanup_imgui()

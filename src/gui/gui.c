@@ -54,13 +54,13 @@ int ap_gui_init()
   // start "full screen"
   apdt.win_width  = mode->width;  //1920;
   apdt.win_height = mode->height; //1080;
+
+  fs_basedir(apdt.basedir, sizeof(apdt.basedir));
   ap_gui_init_imgui();
 
   const int type = dt_rc_get_int(&apdt.rc, "gui/last_collection_type", 0);
   const char *node = dt_rc_get(&apdt.rc, type == 0 ? "gui/last_folder" : "gui/last_tag", "");
   ap_gui_switch_collection(node, type);
-
-  fs_basedir(apdt.basedir, sizeof(apdt.basedir));
 
   return 0;
 }

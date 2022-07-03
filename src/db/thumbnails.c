@@ -377,18 +377,20 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, ap_image_t *img)
   if(!apdt.UploadBuffer)
   // Create the Upload Buffer:
   {
-    VkBufferCreateInfo buffer_info = {};
-    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    buffer_info.size = mem_req.size;
-    buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VkBufferCreateInfo buffer_info = {
+      .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+      .size = mem_req.size,
+      .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+      .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
     err = vkCreateBuffer(apdt.device, &buffer_info, 0, &apdt.UploadBuffer);
     check_vk_result(err);
     VkMemoryRequirements req;
     vkGetBufferMemoryRequirements(apdt.device, apdt.UploadBuffer, &req);
-    VkMemoryAllocateInfo alloc_info = {};
-    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-    alloc_info.allocationSize = req.size;
+    VkMemoryAllocateInfo alloc_info = {
+      .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+      .allocationSize = req.size
+    };
     alloc_info.memoryTypeIndex = qvk_get_memory_type(req.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     err = vkAllocateMemory(apdt.device, &alloc_info, 0, &apdt.UploadBufferMemory);
     check_vk_result(err);
@@ -440,12 +442,13 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, ap_image_t *img)
     copy_barrier[0].subresourceRange.layerCount = 1;
     vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, copy_barrier);
 
-    VkBufferImageCopy region = {};
-    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    region.imageSubresource.layerCount = 1;
-    region.imageExtent.width = th->wd;
-    region.imageExtent.height = th->ht;
-    region.imageExtent.depth = 1;
+    VkBufferImageCopy region = {
+      .imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+      .imageSubresource.layerCount = 1,
+      .imageExtent.width = th->wd,
+      .imageExtent.height = th->ht,
+      .imageExtent.depth = 1
+    };
     vkCmdCopyBufferToImage(command_buffer, apdt.UploadBuffer, th->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     VkImageMemoryBarrier use_barrier[1] = {};
@@ -462,10 +465,11 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, ap_image_t *img)
     use_barrier[0].subresourceRange.layerCount = 1;
     vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, use_barrier);
 
-    VkSubmitInfo end_info = {};
-    end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    end_info.commandBufferCount = 1;
-    end_info.pCommandBuffers = &command_buffer;
+    VkSubmitInfo end_info = {
+      .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+      .commandBufferCount = 1,
+      .pCommandBuffers = &command_buffer
+    };
     err = vkEndCommandBuffer(command_buffer);
     check_vk_result(err);
     err = vkQueueSubmit(apdt.queue, 1, &end_info, VK_NULL_HANDLE);
