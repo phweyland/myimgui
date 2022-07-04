@@ -545,8 +545,6 @@ int ap_request_vkdt_thumbnail(dt_thumbnails_t *tn, ap_image_t *img)
   }
   memcpy(&tn->img_ths[tn->img_th_req], img, sizeof(ap_image_t));
   ap_image_t *img2 = &tn->img_ths[tn->img_th_req];
-  printf("ap_request_vkdt_thumbnail %s req %d done %d\n", img2->filename, tn->img_th_req, tn->img_th_done);
-
   tn->img_th_req++;
   if(tn->img_th_req >= tn->img_th_nb)
     tn->img_th_req = 0;
@@ -557,22 +555,32 @@ void vkdt_work(uint32_t item, void *arg)
 {
   vkdt_job_t *j = (vkdt_job_t *)arg;
   dt_thumbnails_t *tn = j->tn;
+  struct timespec ts;
+  ts.tv_sec = 0;
+  ts.tv_nsec = 10000;
   while(1)
   {
     if(*j->abort)
       return;
-    struct timespec ts;
-    ts.tv_sec = 0;
-    ts.tv_nsec = 10000;
     nanosleep(&ts, NULL);
     if(tn->img_th_req != tn->img_th_done)
     {
       ap_image_t *img = &tn->img_ths[tn->img_th_done];
-
       char cmd[512];
       snprintf(cmd, sizeof(cmd), "%svkdt-cli -g %s/%s.cfg --width 400 --height 400 --format o-bc1 --filename %s/%x.bc1",
                dt_rc_get(&apdt.rc, "vkdt_folder", ""), img->path, img->filename, apdt.thumbnails.cachedir, img->hash);
       int res = system(cmd);
+      if(res)
+      {
+        dt_log(s_log_db, "[thm] running vkdt failed on image '%s/%s'!", img->path, img->filename);
+        // mark as dead
+        char cfgfilename[512];
+        char bc1filename[512];
+        snprintf(cfgfilename, sizeof(cfgfilename), "%s/%x.bc1", apdt.thumbnails.cachedir, img->hash);
+        snprintf(bc1filename, sizeof(bc1filename), "%sdata/bomb.bc1", dt_rc_get(&apdt.rc, "vkdt_folder", ""));
+// vkdt-cli failure on some jpg and tiff ?
+//        link(cfgfilename, bc1filename);
+      }
       tn->img_th_done++;
       if(tn->img_th_done >= tn->img_th_nb)
         tn->img_th_done = 0;
