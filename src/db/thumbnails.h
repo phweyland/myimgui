@@ -50,6 +50,13 @@ typedef struct dt_thumbnails_t
   dt_thumbnail_t       *mru;   // most  recently used thumbnail, append here
 
   char                  cachedir[1024];
+
+  // vkdt-cli queue
+  uint32_t img_th_nb;
+  uint32_t img_th_req;
+  uint32_t img_th_done;
+  ap_image_t *img_ths;
+  int img_th_abort;
 }
 dt_thumbnails_t;
 
@@ -70,3 +77,8 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
 
 // update thumbnails for a list of image ids.
 void dt_thumbnails_load_list(dt_thumbnails_t *tn, ap_col_t *col, uint32_t beg, uint32_t end);
+
+// request the thumbnail generation
+int ap_request_vkdt_thumbnail(dt_thumbnails_t *tn, ap_image_t *img);
+// start thumbnail generation job
+int ap_start_vkdt_thumbnail_job(dt_thumbnails_t *tn, int *abort);

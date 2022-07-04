@@ -759,6 +759,8 @@ extern "C" void ap_gui_render_frame_imgui()
           ap_image_t *images = apdt.col.images;
           uint32_t tid = images[i+k].thumbnail;
           if(tid == -1u) tid = 0; // busybee
+          if(tid == 0)
+            ap_request_vkdt_thumbnail(&apdt.thumbnails, &images[i+k]);
           char img[256];
           snprintf(img, sizeof(img), "%s", images[i+k].filename);
 
@@ -876,6 +878,7 @@ extern "C" void ap_gui_cleanup_imgui()
 {
   // Cleanup
   impdt_abort = 1;
+  apdt.thumbnails.img_th_abort = 1;
   VkResult err = vkDeviceWaitIdle(apdt.device);
   check_vk_result(err);
   ImGui_ImplVulkan_Shutdown();

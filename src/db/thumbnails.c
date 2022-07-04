@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <errno.h>
+//#include <unistd.h>
 
 #if 0
 void
@@ -72,6 +73,13 @@ dt_thumbnails_init(
     tn->thumb[k].prev = tn->thumb+k-1;
   }
   dt_log(s_log_db, "allocating %3.1f MB for thumbnails", heap_size/(1024.0*1024.0));
+
+  // init thumbnail generation queue
+  tn->img_th_req = tn->img_th_done = 0;
+  tn->img_th_nb = 500;
+  tn->img_ths = calloc(tn->img_th_nb, sizeof(ap_image_t));
+  tn->img_th_abort = 0;
+  ap_start_vkdt_thumbnail_job(tn, &tn->img_th_abort);
 
   // alloc dummy image to get memory type bits and something to display
   VkFormat format = VK_FORMAT_BC1_RGB_SRGB_BLOCK;
@@ -166,9 +174,7 @@ dt_thumbnails_init(
   return VK_SUCCESS;
 }
 
-void
-dt_thumbnails_cleanup(
-    dt_thumbnails_t *tn)
+void dt_thumbnails_cleanup(dt_thumbnails_t *tn)
 {
   for(int i=0;i<tn->thumb_max;i++)
   {
@@ -188,6 +194,7 @@ dt_thumbnails_cleanup(
     vkFreeMemory(apdt.device, apdt.UploadBufferMemory, 0);
     vkDestroyBuffer(apdt.device, apdt.UploadBuffer, 0);
   }
+  free(tn->img_ths);
 }
 
 void dt_thumbnails_load_list(dt_thumbnails_t *tn, ap_col_t *col, uint32_t beg, uint32_t end)
@@ -514,4 +521,70 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
   dt_log(s_log_perf, "[thm] read in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
 
   return VK_SUCCESS;
+}
+
+typedef struct vkdt_job_t
+{
+  dt_thumbnails_t *tn;
+  int *abort;
+  int taskid;
+} vkdt_job_t;
+
+int ap_request_vkdt_thumbnail(dt_thumbnails_t *tn, ap_image_t *img)
+{
+  if(tn->img_th_req + 1 == tn->img_th_done || tn->img_th_req + 1 == tn->img_th_done - tn->img_th_nb)
+  {
+    printf("thumb queue full\n");
+    return 1;
+  }
+  for(int i = tn->img_th_done; i != tn->img_th_req && i <= tn->img_th_nb; i++)
+  {
+    if(i == tn->img_th_nb)
+      i = 0;
+    if(tn->img_ths[i].imgid == img->imgid) return 0;
+  }
+  memcpy(&tn->img_ths[tn->img_th_req], img, sizeof(ap_image_t));
+  ap_image_t *img2 = &tn->img_ths[tn->img_th_req];
+  printf("ap_request_vkdt_thumbnail %s req %d done %d\n", img2->filename, tn->img_th_req, tn->img_th_done);
+
+  tn->img_th_req++;
+  if(tn->img_th_req >= tn->img_th_nb)
+    tn->img_th_req = 0;
+  return 0;
+}
+
+void vkdt_work(uint32_t item, void *arg)
+{
+  vkdt_job_t *j = (vkdt_job_t *)arg;
+  dt_thumbnails_t *tn = j->tn;
+  while(1)
+  {
+    if(*j->abort)
+      return;
+    struct timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = 10000;
+    nanosleep(&ts, NULL);
+    if(tn->img_th_req != tn->img_th_done)
+    {
+      ap_image_t *img = &tn->img_ths[tn->img_th_done];
+
+      char cmd[512];
+      snprintf(cmd, sizeof(cmd), "%svkdt-cli -g %s/%s.cfg --width 400 --height 400 --format o-bc1 --filename %s/%x.bc1",
+               dt_rc_get(&apdt.rc, "vkdt_folder", ""), img->path, img->filename, apdt.thumbnails.cachedir, img->hash);
+      int res = system(cmd);
+      tn->img_th_done++;
+      if(tn->img_th_done >= tn->img_th_nb)
+        tn->img_th_done = 0;
+    }
+  }
+}
+
+int ap_start_vkdt_thumbnail_job(dt_thumbnails_t *tn, int *abort)
+{
+  static vkdt_job_t j;
+  j.tn = tn;
+  j.abort = abort;
+  j.taskid = threads_task(1, -1, &j, vkdt_work, NULL);
+  return j.taskid;
 }
