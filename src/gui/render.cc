@@ -334,7 +334,6 @@ static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data)
     info.pClearValues = &wd->ClearValue;
     vkCmdBeginRenderPass(fd->CommandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
   }
-  wd->ClearValue = (VkClearValue){{.float32={0.18f, 0.18f, 0.18f, 1.0f}}};
 
   // Record dear imgui primitives into command buffer
   ImGui_ImplVulkan_RenderDrawData(draw_data, fd->CommandBuffer);
@@ -558,6 +557,7 @@ extern "C" int ap_gui_init_imgui()
     check_vk_result(err);
     ImGui_ImplVulkan_DestroyFontUploadObjects();
   }
+  wd->ClearValue = (VkClearValue){{.float32={0.18f, 0.18f, 0.18f, 1.0f}}};
 
   // Our state
   show_demo_window = true;
@@ -730,10 +730,11 @@ extern "C" void ap_gui_render_frame_imgui()
 
     const int ipl = 6;
     const int border = 0.004 * apdt.win_width;
-    const int wd = apdt.center_wd / ipl - border*2 - style.ItemSpacing.x*2;
-    const int ht = wd;
+    const int width = apdt.center_wd / ipl - border*2 - style.ItemSpacing.x*2;
+    const int height = width;
     const int cnt = apdt.col.image_cnt;
     const int lines = (cnt+ipl-1)/ipl;
+    printf("nb %d nbl %d\n", cnt, lines);
     ImGuiListClipper clipper;
     clipper.Begin(lines);
     while(clipper.Step())
@@ -772,8 +773,8 @@ extern "C" void ap_gui_render_frame_imgui()
 //            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8, 0.8, 0.8, 1.0));
 //          }
           float scale = MIN(
-              wd/(float)apdt.thumbnails.thumb[tid].wd,
-              ht/(float)apdt.thumbnails.thumb[tid].ht);
+              width/(float)apdt.thumbnails.thumb[tid].wd,
+              height/(float)apdt.thumbnails.thumb[tid].ht);
           float w = apdt.thumbnails.thumb[tid].wd * scale;
           float h = apdt.thumbnails.thumb[tid].ht * scale;
 

@@ -155,6 +155,12 @@ dt_thumbnails_init(
     check_vk_result(err);
   }
 
+  uint32_t id = 0;
+  if(dt_thumbnails_load_one(tn, "data/busybee.bc1", &id) != VK_SUCCESS)
+  {
+    dt_log(s_log_err|s_log_db, "could not load required thumbnail symbols!");
+    return VK_INCOMPLETE;
+  }
   return VK_SUCCESS;
 }
 
@@ -192,8 +198,10 @@ void dt_thumbnails_load_list(dt_thumbnails_t *tn, ap_col_t *col, uint32_t beg, u
 
     if(img->thumbnail == 0)
     { // not loaded
+      char filename[PATH_MAX+100] = {0};
+      snprintf(filename, sizeof(filename), "%s/%x.bc1", tn->cachedir, img->hash);
       img->thumbnail = -1u;
-      if(dt_thumbnails_load_one(tn, img))
+      if(dt_thumbnails_load_one(tn, filename, &img->thumbnail))
         img->thumbnail = 0;
     }
     else if(img->thumbnail > 0 && img->thumbnail < tn->thumb_max)
@@ -259,16 +267,20 @@ static int _thumbnails_read(const char *filename, void *mapped)
 
 // load a previously cached thumbnail to a VkImage onto the GPU.
 // returns VK_SUCCESS on success
-VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, ap_image_t *img)
+VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index)
 {
   VkResult err;
   char imgfilename[PATH_MAX+100] = {0};
+  if(strncmp(filename, "data/", 5))
+  { // only hash images that aren't straight from our resource directory:
+    snprintf(imgfilename, sizeof(imgfilename), "%s", filename);
+  }
+  else snprintf(imgfilename, sizeof(imgfilename), "%s/%s", apdt.basedir, filename);
   struct stat statbuf = {0};
-  snprintf(imgfilename, sizeof(imgfilename), "%s/%x.bc1", tn->cachedir, img->hash);
   if(stat(imgfilename, &statbuf)) return VK_INCOMPLETE;
 
   dt_thumbnail_t *th = 0;
-  if(img->thumbnail == -1u)
+  if(*thumb_index == -1u)
   { // allocate thumbnail from lru list
     // threads_mutex_lock(&tn->lru_lock);
     th = tn->lru;
@@ -276,10 +288,13 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, ap_image_t *img)
     if(tn->mru == th) tn->mru = th->prev;// going to remove mru, need to move
     DLIST_RM_ELEMENT(th);                // disconnect old head
     tn->mru = DLIST_APPEND(tn->mru, th); // append to end and move tail
-    img->thumbnail = th - tn->thumb;
+    *thumb_index = th - tn->thumb;
     // threads_mutex_unlock(&tn->lru_lock);
   }
-  else th = tn->thumb + img->thumbnail;
+  else th = tn->thumb + *thumb_index;
+
+  if(*thumb_index == 0 && th->image)
+    return VK_SUCCESS;
 
   // cache eviction:
   // clean up memory in case there was something here:
