@@ -277,7 +277,11 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
   { // only hash images that aren't straight from our resource directory:
     snprintf(imgfilename, sizeof(imgfilename), "%s", filename);
   }
-  else snprintf(imgfilename, sizeof(imgfilename), "%s/%s", apdt.basedir, filename);
+  else
+  {
+    const char* dt_dir = dt_rc_get(&apdt.rc, "vkdt_folder", "");
+    snprintf(imgfilename, sizeof(imgfilename), "%s/%s", dt_dir, filename);
+  }
   struct stat statbuf = {0};
   if(stat(imgfilename, &statbuf)) return VK_INCOMPLETE;
 
