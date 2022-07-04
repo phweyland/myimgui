@@ -36,6 +36,7 @@ typedef struct apdt_t
   VkQueue queue;
   VkDeviceMemory UploadBufferMemory;
   VkBuffer UploadBuffer;
+  int UploadBufferSize;
 
   int theme;
 

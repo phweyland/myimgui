@@ -734,7 +734,7 @@ extern "C" void ap_gui_render_frame_imgui()
     const int height = width;
     const int cnt = apdt.col.image_cnt;
     const int lines = (cnt+ipl-1)/ipl;
-    printf("nb %d nbl %d\n", cnt, lines);
+
     ImGuiListClipper clipper;
     clipper.Begin(lines);
     while(clipper.Step())

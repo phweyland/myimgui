@@ -154,6 +154,8 @@ dt_thumbnails_init(
     err = vkAllocateDescriptorSets(apdt.device, &dset_info, &tn->thumb[i].dset);
     check_vk_result(err);
   }
+  apdt.UploadBuffer = VK_NULL_HANDLE;
+  apdt.UploadBufferSize = 0;
 
   uint32_t id = 0;
   if(dt_thumbnails_load_one(tn, "data/busybee.bc1", &id) != VK_SUCCESS)
@@ -389,7 +391,16 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
 
   clock_t beg = clock();
 
-  if(!apdt.UploadBuffer)
+  if(mem_req.size > apdt.UploadBufferSize)
+  {
+    if(apdt.UploadBuffer)
+    {
+      vkFreeMemory(apdt.device, apdt.UploadBufferMemory, 0);
+      vkDestroyBuffer(apdt.device, apdt.UploadBuffer, 0);
+      apdt.UploadBuffer = VK_NULL_HANDLE;
+    }
+  }
+  if(apdt.UploadBuffer == VK_NULL_HANDLE)
   // Create the Upload Buffer:
   {
     VkBufferCreateInfo buffer_info = {
@@ -399,6 +410,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
       .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
     err = vkCreateBuffer(apdt.device, &buffer_info, 0, &apdt.UploadBuffer);
+    apdt.UploadBufferSize = mem_req.size;
     check_vk_result(err);
     VkMemoryRequirements req;
     vkGetBufferMemoryRequirements(apdt.device, apdt.UploadBuffer, &req);
@@ -415,21 +427,21 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
 
   // Upload to Buffer:
   {
-      char* mapped = 0;
-      err = vkMapMemory(apdt.device, apdt.UploadBufferMemory, 0, mem_req.size, 0, (void**)(&mapped));
-      check_vk_result(err);
-      if(_thumbnails_read(imgfilename, mapped))
-      {
-        dt_log(s_log_err, "[thm] reading the thumbnail graph failed on image '%s'!", imgfilename);
-        return VK_INCOMPLETE;
-      }
-      VkMappedMemoryRange range[1] = {};
-      range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-      range[0].memory = apdt.UploadBufferMemory;
-      range[0].size = mem_req.size;
-      err = vkFlushMappedMemoryRanges(apdt.device, 1, range);
-      check_vk_result(err);
-      vkUnmapMemory(apdt.device, apdt.UploadBufferMemory);
+    char* mapped = 0;
+    err = vkMapMemory(apdt.device, apdt.UploadBufferMemory, 0, mem_req.size, 0, (void**)(&mapped));
+    check_vk_result(err);
+    if(_thumbnails_read(imgfilename, mapped))
+    {
+      dt_log(s_log_err, "[thm] reading the thumbnail graph failed on image '%s'!", imgfilename);
+      return VK_INCOMPLETE;
+    }
+    VkMappedMemoryRange range[1] = {};
+    range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+    range[0].memory = apdt.UploadBufferMemory;
+    range[0].size = mem_req.size;
+    err = vkFlushMappedMemoryRanges(apdt.device, 1, range);
+    check_vk_result(err);
+    vkUnmapMemory(apdt.device, apdt.UploadBufferMemory);
   }
   // Copy to Image:
   {
