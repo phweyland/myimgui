@@ -568,8 +568,14 @@ void vkdt_work(uint32_t item, void *arg)
     {
       ap_image_t *img = &tn->img_ths[tn->img_th_done];
       char cmd[512];
-      snprintf(cmd, sizeof(cmd), "%svkdt-cli -g %s/%s.cfg --width 400 --height 400 --format o-bc1 --filename %s/%x.bc1",
-               dt_rc_get(&apdt.rc, "vkdt_folder", ""), img->path, img->filename, apdt.thumbnails.cachedir, img->hash);
+      const char *f2 = img->filename + strlen(img->filename);
+      while(f2 > img->filename && *f2 != '.') f2--;
+      snprintf(cmd, sizeof(cmd), "%svkdt-cli -g %s/%s.cfg --width 400 --height 400 "
+                                 "--i-format %s --format o-bc1 --filename %s/%x.bc1 "
+                                 "--config param:f2srgb:main:usemat:0", // rec2020
+               dt_rc_get(&apdt.rc, "vkdt_folder", ""), img->path, img->filename,
+               strcasecmp(f2, ".jpg") ? "i-raw" : "i-jpg",
+               apdt.thumbnails.cachedir, img->hash);
       int res = system(cmd);
       if(res)
       {
