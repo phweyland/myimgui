@@ -435,7 +435,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
     err = vkBindBufferMemory(apdt.device, apdt.UploadBuffer, apdt.UploadBufferMemory, 0);
     check_vk_result(err);
   }
-
+  int res = VK_SUCCESS;
   // Upload to Buffer:
   {
     char* mapped = 0;
@@ -444,7 +444,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
     if(_thumbnails_read(imgfilename, mapped))
     {
       dt_log(s_log_err, "[thm] reading the thumbnail graph failed on image '%s'!", imgfilename);
-      return VK_INCOMPLETE;
+      res = VK_INCOMPLETE;
     }
     VkMappedMemoryRange range[1] = {};
     range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
@@ -455,6 +455,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
     vkUnmapMemory(apdt.device, apdt.UploadBufferMemory);
   }
   // Copy to Image:
+  if(res == VK_SUCCESS)
   {
     VkCommandPool command_pool;
     VkCommandBuffer command_buffer;
@@ -520,7 +521,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
   clock_t end = clock();
   dt_log(s_log_perf, "[thm] read in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
 
-  return VK_SUCCESS;
+  return res;
 }
 
 typedef struct vkdt_job_t
