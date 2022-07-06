@@ -393,7 +393,8 @@ ImVec4 clear_color;
 char impdt_text[256];
 int impdt_taskid;
 int impdt_abort;
-dt_filebrowser_widget_t filebrowser;
+dt_filebrowser_widget_t vkdtbrowser;
+dt_filebrowser_widget_t darktablebrowser;
 ap_navigation_widget_t folderbrowser;
 ap_navigation_widget_t tagbrowser;
 
@@ -565,7 +566,8 @@ extern "C" int ap_gui_init_imgui()
   impdt_text[0] = 0;
   impdt_taskid = -1;
   impdt_abort = 0;
-  dt_filebrowser_init(&filebrowser);
+  dt_filebrowser_init(&vkdtbrowser);
+  dt_filebrowser_init(&darktablebrowser);
   ap_navigation_init(&folderbrowser, 0);
   ap_navigation_init(&tagbrowser, 1);
   return 0;
@@ -648,15 +650,15 @@ extern "C" void ap_gui_render_frame_imgui()
 
       if(ImGui::Button("Vkdt folder"))
       {
-        const char* dt_dir = dt_rc_get(&apdt.rc, "vkdt_folder", "");
-        if(dt_dir[0])
-          snprintf(filebrowser.cwd, sizeof(filebrowser.cwd), "%s", dt_dir);
-        dt_filebrowser_open(&filebrowser);
+        const char* vk_dir = dt_rc_get(&apdt.rc, "vkdt_folder", "");
+        if(vk_dir[0])
+          snprintf(vkdtbrowser.cwd, sizeof(vkdtbrowser.cwd), "%s", vk_dir);
+        dt_filebrowser_open(&vkdtbrowser);
       }
-      if(dt_filebrowser_display(&filebrowser, 'd'))
+      if(dt_filebrowser_display(&vkdtbrowser, 'd'))
       { // "ok" pressed
-        dt_rc_set(&apdt.rc, "vkdt_folder", filebrowser.cwd);
-        dt_filebrowser_cleanup(&filebrowser); // reset all but cwd
+        dt_rc_set(&apdt.rc, "vkdt_folder", vkdtbrowser.cwd);
+        dt_filebrowser_cleanup(&vkdtbrowser); // reset all but cwd
       }
       ImGui::SameLine();
       ImGui::Text("%s", dt_rc_get(&apdt.rc, "vkdt_folder", ""));
@@ -668,13 +670,13 @@ extern "C" void ap_gui_render_frame_imgui()
       {
         const char* dt_dir = dt_rc_get(&apdt.rc, "darktable_folder", "");
         if(dt_dir[0])
-          snprintf(filebrowser.cwd, sizeof(filebrowser.cwd), "%s", dt_dir);
-        dt_filebrowser_open(&filebrowser);
+          snprintf(darktablebrowser.cwd, sizeof(darktablebrowser.cwd), "%s", dt_dir);
+        dt_filebrowser_open(&darktablebrowser);
       }
-      if(dt_filebrowser_display(&filebrowser, 'd'))
+      if(dt_filebrowser_display(&darktablebrowser, 'd'))
       { // "ok" pressed
-        dt_rc_set(&apdt.rc, "darktable_folder", filebrowser.cwd);
-        dt_filebrowser_cleanup(&filebrowser); // reset all but cwd
+        dt_rc_set(&apdt.rc, "darktable_folder", darktablebrowser.cwd);
+        dt_filebrowser_cleanup(&darktablebrowser); // reset all but cwd
       }
       ImGui::SameLine();
       ImGui::Text("%s", dt_rc_get(&apdt.rc, "darktable_folder", ""));
