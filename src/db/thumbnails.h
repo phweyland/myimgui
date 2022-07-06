@@ -82,3 +82,5 @@ void dt_thumbnails_load_list(dt_thumbnails_t *tn, ap_col_t *col, uint32_t beg, u
 int ap_request_vkdt_thumbnail(dt_thumbnails_t *tn, ap_image_t *img);
 // start thumbnail generation job
 int ap_start_vkdt_thumbnail_job(dt_thumbnails_t *tn, int *abort);
+// reset the thumbnail generation
+int ap_reset_vkdt_thumbnail(dt_thumbnails_t *tn);

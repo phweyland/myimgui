@@ -1,5 +1,6 @@
 #include "../core/log.h"
 #include "../core/fs.h"
+#include "../db/thumbnails.h"
 #include "gui.h"
 #include "render.h"
 
@@ -77,6 +78,7 @@ void ap_gui_cleanup()
 
 void ap_gui_switch_collection(const char *node, const int type)
 {
+  ap_reset_vkdt_thumbnail(&apdt.thumbnails);
   if(apdt.col.images)
     free(apdt.col.images);
   snprintf(apdt.col.node, sizeof(apdt.col.node), "%s", node);

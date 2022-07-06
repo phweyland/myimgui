@@ -76,7 +76,7 @@ dt_thumbnails_init(
 
   // init thumbnail generation queue
   tn->img_th_req = tn->img_th_done = 0;
-  tn->img_th_nb = 500;
+  tn->img_th_nb = 5;
   tn->img_ths = calloc(tn->img_th_nb, sizeof(ap_image_t));
   tn->img_th_abort = 0;
   ap_start_vkdt_thumbnail_job(tn, &tn->img_th_abort);
@@ -533,21 +533,25 @@ typedef struct vkdt_job_t
 
 int ap_request_vkdt_thumbnail(dt_thumbnails_t *tn, ap_image_t *img)
 {
-  if(tn->img_th_req + 1 == tn->img_th_done || tn->img_th_req + 1 == tn->img_th_done - tn->img_th_nb)
-  {
-    printf("thumb queue full\n");
+  uint32_t cnt = tn->img_th_req >= tn->img_th_done ? tn->img_th_req - tn->img_th_done : tn->img_th_req + tn->img_th_nb - tn->img_th_done;
+
+  if(cnt >= tn->img_th_nb - 1)
     return 1;
-  }
-  for(int i = tn->img_th_done; i != tn->img_th_req && i <= tn->img_th_nb; i++)
+  if(cnt)
   {
-    if(i == tn->img_th_nb)
-      i = 0;
-    if(tn->img_ths[i].imgid == img->imgid) return 0;
+    for(int i = 0; i < cnt; i++)
+    {
+      uint32_t j = tn->img_th_done + i;
+      if(j == tn->img_th_nb)
+        j = 0;
+      if(tn->img_ths[j].imgid == img->imgid)
+        return 0;
+    }
   }
   memcpy(&tn->img_ths[tn->img_th_req], img, sizeof(ap_image_t));
-  ap_image_t *img2 = &tn->img_ths[tn->img_th_req];
+
   tn->img_th_req++;
-  if(tn->img_th_req >= tn->img_th_nb)
+  if(tn->img_th_req == tn->img_th_nb)
     tn->img_th_req = 0;
   return 0;
 }
@@ -576,7 +580,12 @@ void vkdt_work(uint32_t item, void *arg)
                dt_rc_get(&apdt.rc, "vkdt_folder", ""), img->path, img->filename,
                strcasecmp(f2, ".jpg") ? "i-raw" : "i-jpg",
                apdt.thumbnails.cachedir, img->hash);
-      int res = system(cmd);
+
+      clock_t beg = clock();
+      int res = system(cmd);  // launch vkdt-cli
+      clock_t end = clock();
+      dt_log(s_log_perf, "[thm] created in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
+
       if(res)
       {
         dt_log(s_log_db, "[thm] running vkdt failed on image '%s/%s'!", img->path, img->filename);
@@ -585,12 +594,16 @@ void vkdt_work(uint32_t item, void *arg)
         char bc1filename[512];
         snprintf(cfgfilename, sizeof(cfgfilename), "%s/%x.bc1", apdt.thumbnails.cachedir, img->hash);
         snprintf(bc1filename, sizeof(bc1filename), "%sdata/bomb.bc1", dt_rc_get(&apdt.rc, "vkdt_folder", ""));
-// vkdt-cli failure on some jpg and tiff ?
-//        link(cfgfilename, bc1filename);
+        // vkdt-cli failure on some jpg or tiff ?
+        link(bc1filename, cfgfilename);
       }
-      tn->img_th_done++;
-      if(tn->img_th_done >= tn->img_th_nb)
-        tn->img_th_done = 0;
+
+      if(tn->img_th_done != tn->img_th_req)
+      {
+        tn->img_th_done++;
+        if(tn->img_th_done == tn->img_th_nb)
+          tn->img_th_done = 0;
+      }
     }
   }
 }
@@ -602,4 +615,9 @@ int ap_start_vkdt_thumbnail_job(dt_thumbnails_t *tn, int *abort)
   j.abort = abort;
   j.taskid = threads_task(1, -1, &j, vkdt_work, NULL);
   return j.taskid;
+}
+
+int ap_reset_vkdt_thumbnail(dt_thumbnails_t *tn)
+{
+  tn->img_th_req = tn->img_th_done;
 }
