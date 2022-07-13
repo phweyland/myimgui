@@ -68,24 +68,58 @@ void impdt_work(uint32_t item, void *arg)
 
   sqlite3_exec(ap_db.handle, "INSERT INTO main.tags SELECT * FROM data.tags", NULL, NULL, NULL);
 
-  sqlite3_prepare_v2(ap_db.handle, "SELECT i.id, i.film_id, i.filename, f.folder FROM library.images AS i "
+  sqlite3_prepare_v2(ap_db.handle, "SELECT i.id, i.film_id, i.filename, f.folder, i.flags FROM library.images AS i "
                                    "JOIN library.film_rolls AS f ON f.id = i.film_id", -1, &stmt, NULL);
   int count = 0;
   int faulty = 0;
   while(sqlite3_step(stmt) == SQLITE_ROW)
   {
-    const char *filename = sqlite3_column_text(stmt, 2);
     const int imgid = sqlite3_column_int(stmt, 0);
+    sqlite3_stmt *stmt2;
+
+    // get color labels
+    sqlite3_prepare_v2(ap_db.handle, "SELECT color FROM library.color_labels WHERE imgid = ?1", -1, &stmt2, NULL);
+    sqlite3_bind_int(stmt2, 1, imgid);
+    uint16_t labels = 0;
+    while(sqlite3_step(stmt2) == SQLITE_ROW)
+    {
+      switch(sqlite3_column_int(stmt2, 0))
+      {
+      case 0:
+        labels |= s_image_label_red;
+        break;
+      case 1:
+        labels |= s_image_label_yellow;
+        break;
+      case 2:
+        labels |= s_image_label_green;
+        break;
+      case 3:
+        labels |= s_image_label_blue;
+        break;
+      case 4:
+        labels |= s_image_label_purple;
+        break;
+      }
+    }
+    sqlite3_finalize(stmt2);
+
+    // update images table
+    const char *filename = sqlite3_column_text(stmt, 2);
     char fullname[2048];
     snprintf(fullname, sizeof(fullname), "%s/%s.cfg", sqlite3_column_text(stmt, 3), filename);
     const uint32_t hash = murmur_hash3(fullname, strnlen(fullname, sizeof(fullname)), 1337);
-    sqlite3_stmt *stmt2;
-    sqlite3_prepare_v2(ap_db.handle, "INSERT INTO main.images (id, folderid, filename, hash) "
-                                     "VALUES (?1, ?2, ?3, ?4)", -1, &stmt2, NULL);
+    sqlite3_prepare_v2(ap_db.handle, "INSERT INTO main.images (id, folderid, filename, hash, labels, rating) "
+                                     "VALUES (?1, ?2, ?3, ?4, ?5, ?6)", -1, &stmt2, NULL);
     sqlite3_bind_int(stmt2, 1, imgid);
     sqlite3_bind_int(stmt2, 2, sqlite3_column_int(stmt, 1));
     sqlite3_bind_text(stmt2, 3, filename, -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt2, 4, hash);
+    sqlite3_bind_int(stmt2, 5, labels);
+    uint16_t rating = sqlite3_column_int(stmt, 4) & 0xF;
+    if(rating & 0x8)
+      rating = 0xFFFF;
+    sqlite3_bind_int(stmt2, 6, rating);
     if(sqlite3_step(stmt2) != SQLITE_DONE)
       faulty++;
     sqlite3_finalize(stmt2);
@@ -135,6 +169,7 @@ static void _create_schema(ap_db_t *db)
   sqlite3_exec(db->handle, "CREATE UNIQUE INDEX main.tags_name_idx ON tags (name)", NULL, NULL, NULL);
   sqlite3_exec(db->handle, "CREATE TABLE main.images (id INTEGER PRIMARY KEY AUTOINCREMENT, "
                            "folderid INTEGER, filename VARCHAR, hash INTEGER,"
+                           "labels INTEGER, rating INTEGER, "
                            "FOREIGN KEY(folderid) REFERENCES folders(id) ON DELETE CASCADE ON UPDATE CASCADE)", NULL, NULL, NULL);
   sqlite3_exec(db->handle, "CREATE INDEX main.images_folderid_index ON images (folderid, filename)", NULL, NULL, NULL);
   sqlite3_exec(db->handle, "CREATE UNIQUE INDEX main.images_hash_index ON images (hash)", NULL, NULL, NULL);
@@ -279,7 +314,8 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
   if(type == 0)
   {
     sqlite3_prepare_v2(ap_db.handle,
-                       "SELECT i.id, i.filename, r.root || f.folder as path, i.hash FROM main.images AS i "
+                       "SELECT i.id, i.filename, r.root || f.folder as path, i.hash, i.labels, i.rating "
+                       "FROM main.images AS i "
                        "JOIN main.folders AS f ON f.id = i.folderid "
                        "JOIN main.roots AS r ON r.id = f.rootid "
                        "WHERE f.folder = ?1",
@@ -289,7 +325,8 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
   {
     const char sep[4] = "|";
     sqlite3_prepare_v2(ap_db.handle,
-                       "SELECT i.id, i.filename, r.root || f.folder as path, i.hash FROM main.images AS i "
+                       "SELECT i.id, i.filename, r.root || f.folder as path, i.hash, i.labels, i.rating "
+                       "FROM main.images AS i "
                        "JOIN main.tagged_images AS ti ON ti.imgid = i.id "
                        "JOIN main.tags AS t ON t.id = ti.tagid "
                        "JOIN main.folders AS f ON f.id = i.folderid "
@@ -319,6 +356,8 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
     snprintf(image->filename, sizeof(image->filename), "%s", sqlite3_column_text(stmt, 1));
     snprintf(image->path, sizeof(image->path), "%s", sqlite3_column_text(stmt, 2));
     image->hash = sqlite3_column_int(stmt, 3);
+    image->labels = sqlite3_column_int(stmt, 4);
+    image->rating = sqlite3_column_int(stmt, 5);
     image++;
   }
   sqlite3_finalize(stmt);

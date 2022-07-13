@@ -8,15 +8,6 @@
 typedef struct GLFWwindow GLFWwindow;
 typedef struct ap_db_t ap_db_t;
 
-typedef struct ap_image_t
-{
-  int imgid;          // imgid = murmur3(filename)
-  char filename[252]; // filename
-  char path[512];
-  uint32_t hash;
-  uint32_t thumbnail;
-} ap_image_t;
-
 typedef struct ap_col_t
 {
   char node[512];
