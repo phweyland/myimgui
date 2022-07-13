@@ -784,8 +784,8 @@ extern "C" void ap_gui_render_frame_imgui()
                 border,
                 ImVec4(0.5f,0.5f,0.5f,1.0f),
                 ImVec4(1.0f,1.0f,1.0f,1.0f),
-                0,  // rating
-                0,  // label
+                images[i+k].rating,  // rating
+                images[i+k].labels,  // labels
                 img,
                 0)) // nav_focus
             {
