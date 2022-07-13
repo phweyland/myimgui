@@ -17,3 +17,10 @@
 #define CLAMP(a,m,M) (MIN(MAX((a), (m)), (M)))
 
 #define LENGTH(a) ((sizeof (a)) / (sizeof(*(a))))
+
+static inline double dt_time()
+{
+  struct timeval time;
+  gettimeofday(&time, NULL);
+  return time.tv_sec - 1290608000 + (1.0/1000000.0)*time.tv_usec;
+}

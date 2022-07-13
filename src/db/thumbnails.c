@@ -564,6 +564,7 @@ void vkdt_work(uint32_t item, void *arg)
   struct timespec ts;
   ts.tv_sec = 0;
   ts.tv_nsec = 10000;
+
   while(1)
   {
     if(*j->abort)
@@ -581,11 +582,10 @@ void vkdt_work(uint32_t item, void *arg)
                dt_rc_get(&apdt.rc, "vkdt_folder", ""), img->path, img->filename,
                apdt.thumbnails.cachedir, img->hash);
 
-      clock_t beg = clock();
+      double beg = dt_time();
       int res = system(cmd);  // launch vkdt-cli
-      clock_t end = clock();
-      dt_log(s_log_perf, "[thm] created in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
-
+      double end = dt_time();
+      dt_log(s_log_perf, "[thm] created in %3.0fms", 1000.0*(end-beg));
       if(res)
       {
         dt_log(s_log_db, "[thm] running vkdt failed on image '%s/%s'!", img->path, img->filename);

@@ -1,4 +1,5 @@
 #include "log.h"
+#include "core.h"
 
 dt_log_t dt_log_global;
 
@@ -47,6 +48,7 @@ int dt_log_init_arg(int argc, char *argv[])
 void dt_log_init(dt_log_mask_t verbose)
 {
   dt_log_global.mask = verbose;
+  dt_log_global.start_time = dt_time();
 }
 
 void dt_log(
@@ -70,7 +72,8 @@ void dt_log(
     char str[2048];
     int index = mask ? 32-__builtin_clz(mask) : 0;
     if(index > sizeof(pre)/sizeof(pre[0])) index = 0;
-    snprintf(str, sizeof(str), "%s %s\n", pre[index], format);
+    double end = dt_time();
+    snprintf(str, sizeof(str), "%.6f %s %s\n", (float)(end - dt_log_global.start_time), pre[index], format);
     va_list args;
     va_start(args, format);
     vfprintf(stdout, str, args);

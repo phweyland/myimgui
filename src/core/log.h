@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <time.h>
 
 // layered logging facility
 
@@ -23,6 +24,7 @@ dt_log_mask_t;
 typedef struct dt_log_t
 {
   dt_log_mask_t mask;
+  double start_time;
 }
 dt_log_t;
 
