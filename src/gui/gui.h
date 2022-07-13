@@ -68,4 +68,4 @@ int ap_gui_init();
 void ap_gui_cleanup();
 void ap_gui_window_resize();
 void ap_gui_switch_collection(const char *node, const int type);
-void ap_gui_get_buffer(VkCommandPool *command_pool, VkCommandBuffer *command_buffer);
+void ap_gui_get_buffer(VkCommandPool *command_pool, VkCommandBuffer *command_buffer, VkFence *fence);

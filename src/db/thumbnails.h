@@ -74,7 +74,6 @@ void dt_thumbnails_cleanup(dt_thumbnails_t *tn);
 // load one bc1 thumbnail for a given filename. fills thumb_index and returns
 // VK_SUCCESS if all went well.
 VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index);
-
 // update thumbnails for a list of image ids.
 void dt_thumbnails_load_list(dt_thumbnails_t *tn, ap_col_t *col, uint32_t beg, uint32_t end);
 

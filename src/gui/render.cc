@@ -889,9 +889,13 @@ extern "C" void ap_gui_cleanup_vulkan()
   CleanupVulkan();
 }
 
-extern "C" void ap_gui_get_buffer(VkCommandPool *command_pool, VkCommandBuffer *command_buffer)
+extern "C" void ap_gui_get_buffer(VkCommandPool *command_pool, VkCommandBuffer *command_buffer, VkFence *fence)
 {
   ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
-  *command_pool = wd->Frames[wd->FrameIndex].CommandPool;
-  *command_buffer = wd->Frames[wd->FrameIndex].CommandBuffer;
+  if(command_pool)
+    *command_pool = wd->Frames[wd->FrameIndex].CommandPool;
+  if(command_buffer)
+    *command_buffer = wd->Frames[wd->FrameIndex].CommandBuffer;
+  if(fence)
+    *fence = wd->Frames[wd->FrameIndex].Fence;
 }

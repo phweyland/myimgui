@@ -76,7 +76,7 @@ dt_thumbnails_init(
 
   // init thumbnail generation queue
   tn->img_th_req = tn->img_th_done = 0;
-  tn->img_th_nb = 5;
+  tn->img_th_nb = 10;
   tn->img_ths = calloc(tn->img_th_nb, sizeof(ap_image_t));
   tn->img_th_abort = 0;
   ap_start_vkdt_thumbnail_job(tn, &tn->img_th_abort);
@@ -457,11 +457,15 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
   // Copy to Image:
   if(res == VK_SUCCESS)
   {
-    VkCommandPool command_pool;
     VkCommandBuffer command_buffer;
-    ap_gui_get_buffer(&command_pool, &command_buffer);
-    err = vkResetCommandPool(apdt.device, command_pool, 0);
+    VkFence fence;
+    ap_gui_get_buffer(NULL, &command_buffer, &fence);
+
+    err = vkWaitForFences(apdt.device, 1, &fence, VK_TRUE, 1ul<<40);
     check_vk_result(err);
+    err = vkResetFences(apdt.device, 1, &fence);
+    check_vk_result(err);
+
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -511,10 +515,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
     };
     err = vkEndCommandBuffer(command_buffer);
     check_vk_result(err);
-    err = vkQueueSubmit(apdt.queue, 1, &end_info, VK_NULL_HANDLE);
-    check_vk_result(err);
-
-    err = vkDeviceWaitIdle(apdt.device);
+    err = vkQueueSubmit(apdt.queue, 1, &end_info, fence);
     check_vk_result(err);
   }
 
@@ -575,10 +576,9 @@ void vkdt_work(uint32_t item, void *arg)
       const char *f2 = img->filename + strlen(img->filename);
       while(f2 > img->filename && *f2 != '.') f2--;
       snprintf(cmd, sizeof(cmd), "%svkdt-cli -g %s/%s.cfg --width 400 --height 400 "
-                                 "--i-format %s --format o-bc1 --filename %s/%x.bc1 "
+                                 "--format o-bc1 --filename %s/%x.bc1 "
                                  "--config param:f2srgb:main:usemat:0", // rec2020
                dt_rc_get(&apdt.rc, "vkdt_folder", ""), img->path, img->filename,
-               strcasecmp(f2, ".jpg") ? "i-raw" : "i-jpg",
                apdt.thumbnails.cachedir, img->hash);
 
       clock_t beg = clock();
