@@ -1,6 +1,6 @@
-#include "alloc.h"
-#include "../core/core.h"
-#include "../core/dlist.h"
+#include "db/alloc.h"
+#include "core/core.h"
+#include "core/dlist.h"
 
 #include <string.h>
 #include <stdlib.h>

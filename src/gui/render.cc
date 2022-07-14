@@ -1,4 +1,4 @@
-#include "themes.hh"
+#include "gui/themes.hh"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -20,16 +20,16 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
-#include "widget_filebrowser.hh"
-#include "widget_navigation.hh"
-#include "widget_thumbnail.hh"
+#include "gui/widget_filebrowser.hh"
+#include "gui/widget_navigation.hh"
+#include "gui/widget_thumbnail.hh"
 extern "C" {
-#include "gui.h"
-#include "../db/database.h"
-#include "../core/threads.h"
-#include "../core/core.h"
+#include "gui/gui.h"
+#include "db/database.h"
+#include "core/threads.h"
+#include "core/core.h"
 }
-#include "../core/vk.h"
+#include "core/vk.h"
 
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to maximize ease of testing and compatibility with old VS compilers.
 // To link with VS2010-era libraries, VS2015+ requires linking with legacy_stdio_definitions.lib, which we do using this pragma.
@@ -829,7 +829,7 @@ extern "C" void ap_gui_render_frame_imgui()
                   char cmd[256];
                   snprintf(cmd, sizeof(cmd), "%svkdt %s/%s",
                            dt_rc_get(&apdt.rc, "vkdt_folder", ""), images[i+k].path, images[i+k].filename);
-                  FILE *handle = popen(cmd, "r");
+                  popen(cmd, "r");
                 }
                 else
                 {

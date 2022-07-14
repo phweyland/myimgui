@@ -1,7 +1,7 @@
 #pragma once
 
-#include "alloc.h"
-#include "../core/threads.h"
+#include "db/alloc.h"
+#include "core/threads.h"
 
 #include <vulkan/vulkan.h>
 
@@ -82,4 +82,4 @@ int ap_request_vkdt_thumbnail(dt_thumbnails_t *tn, ap_image_t *img);
 // start thumbnail generation job
 int ap_start_vkdt_thumbnail_job(dt_thumbnails_t *tn, int *abort);
 // reset the thumbnail generation
-int ap_reset_vkdt_thumbnail(dt_thumbnails_t *tn);
+void ap_reset_vkdt_thumbnail(dt_thumbnails_t *tn);

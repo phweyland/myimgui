@@ -1,5 +1,4 @@
-#define _GNU_SOURCE
-#include "threads.h"
+#include "core/threads.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,6 +18,7 @@ _Thread_local threads_tls_t thr_tls;
 
 typedef void (*threads_run_t)(uint32_t item, void *data);
 typedef void (*threads_free_t)(void *data);
+
 
 typedef enum threads_task_state_t
 {

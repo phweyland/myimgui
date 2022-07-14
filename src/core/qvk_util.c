@@ -16,8 +16,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
 
-#include "qvk_util.h"
-#include "../gui/gui.h"
+#include "core/qvk_util.h"
+#include "gui/gui.h"
 
 uint32_t
 qvk_get_memory_type(uint32_t mem_req_type_bits, VkMemoryPropertyFlags mem_prop)

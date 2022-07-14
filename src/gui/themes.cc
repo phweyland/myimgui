@@ -1,7 +1,7 @@
 #include "imgui.h"
 #include <math.h>
 extern "C" {
-#include "gui.h"
+#include "gui/gui.h"
 }
 
 inline ImVec4 gamma(ImVec4 in)

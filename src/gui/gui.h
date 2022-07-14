@@ -1,8 +1,8 @@
 #pragma once
-#include "../db/rc.h"
-#include "../db/database.h"
-#include "../db/thumbnails.h"
-#include "../core/qvk_util.h"
+#include "db/rc.h"
+#include "db/database.h"
+#include "db/thumbnails.h"
+#include "core/qvk_util.h"
 
 // forward declare
 typedef struct GLFWwindow GLFWwindow;
@@ -53,7 +53,7 @@ typedef struct apdt_t
 } apdt_t;
 
 extern apdt_t apdt;
-extern const char *ap_name;
+extern char *ap_name;
 
 int ap_gui_init();
 void ap_gui_cleanup();

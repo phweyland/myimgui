@@ -1,7 +1,7 @@
 #pragma once
 //#include <glib.h>
 extern "C" {
-#include "../db/database.h"
+#include "db/database.h"
 }
 // store some state
 struct ap_navigation_widget_t

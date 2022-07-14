@@ -1,5 +1,5 @@
-#include "log.h"
-#include "core.h"
+#include "core/log.h"
+#include "core/core.h"
 
 dt_log_t dt_log_global;
 

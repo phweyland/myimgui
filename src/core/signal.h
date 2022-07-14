@@ -16,7 +16,7 @@
     along with darktable.  If not, see <http://www.gnu.org/licenses/>.
 */
 #pragma once
-#include "../gui/gui.h"
+#include "gui/gui.h"
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>

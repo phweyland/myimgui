@@ -1,10 +1,10 @@
 //#include <glib.h>
-#include "rc.h"
-#include "database.h"
-#include "murmur3.h"
-#include "../gui/gui.h"
-#include "../core/log.h"
-#include "../core/threads.h"
+#include "db/rc.h"
+#include "db/database.h"
+#include "db/murmur3.h"
+#include "gui/gui.h"
+#include "core/log.h"
+#include "core/threads.h"
 #include <stdio.h>
 #include <stdlib.h>
 //#include <glib.h>
@@ -105,7 +105,7 @@ void impdt_work(uint32_t item, void *arg)
     sqlite3_finalize(stmt2);
 
     // update images table
-    const char *filename = sqlite3_column_text(stmt, 2);
+    const char *filename = (const char *)sqlite3_column_text(stmt, 2);
     char fullname[2048];
     snprintf(fullname, sizeof(fullname), "%s/%s.cfg", sqlite3_column_text(stmt, 3), filename);
     const uint32_t hash = murmur_hash3(fullname, strnlen(fullname, sizeof(fullname)), 1337);
@@ -191,7 +191,7 @@ void ap_db_init()
   snprintf(dbfile, sizeof(dbfile), "%s/.config/%s/db.db", getenv("HOME"), ap_name);
   FILE *file;
   int db_exists = 0;
-  if (file = fopen(dbfile, "r"))
+  if((file = fopen(dbfile, "r")))
   {
     fclose(file);
     db_exists = 1;
@@ -253,7 +253,7 @@ int ap_db_get_subnodes(const char *parent, const int type, ap_nodes_t **nodes)
       sqlite3_bind_text(stmt, 1, sep, -1, SQLITE_STATIC);
     }
   }
-  else if (type == 1)
+  else // if(type == 1)
   {
     const char sep[4] = "|";
     if(parent[0])
@@ -321,9 +321,8 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
                        "WHERE f.folder = ?1",
                        -1, &stmt, NULL);
   }
-  else if(type == 1)
+  else // if(type == 1)
   {
-    const char sep[4] = "|";
     sqlite3_prepare_v2(ap_db.handle,
                        "SELECT i.id, i.filename, r.root || f.folder as path, i.hash, i.labels, i.rating "
                        "FROM main.images AS i "
@@ -340,7 +339,6 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
   while(sqlite3_step(stmt) == SQLITE_ROW)
     count++;
 
-  const char *err = sqlite3_errmsg(ap_db.handle);
   if(!count)
   {
     sqlite3_finalize(stmt);

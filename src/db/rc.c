@@ -1,6 +1,6 @@
-#include "db.h"
-#include "stringpool.h"
-#include "rc.h"
+#include "db/db.h"
+#include "db/stringpool.h"
+#include "db/rc.h"
 
 void
 dt_rc_init(
@@ -102,10 +102,7 @@ dt_rc_set_int(
     const int   val)
 {
   char tkey[30] = "int";
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-truncation"
   snprintf(tkey+3, 26, "%s", key); // this always prints a null termination byte to truncate. gcc doesn't understand.
-#pragma GCC diagnostic pop
   uint32_t pos = rc->data_cnt;
   pos = dt_stringpool_get(&rc->sp, tkey, strlen(tkey), pos, 0);
   if(pos == -1u || pos >= rc->data_max) return; // string pool full :(
@@ -139,10 +136,7 @@ dt_rc_set_float(
     const float val)
 {
   char tkey[30] = "flt";
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-truncation"
   snprintf(tkey+3, 26, "%s", key);
-#pragma GCC diagnostic pop
   uint32_t pos = rc->data_cnt;
   pos = dt_stringpool_get(&rc->sp, tkey, strlen(tkey), pos, 0);
   if(pos == -1u || pos >= rc->data_max) return; // string pool full :(

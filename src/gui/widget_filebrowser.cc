@@ -3,7 +3,7 @@
 #include <dirent.h>
 #include <stdio.h>
 
-#include "widget_filebrowser.hh"
+#include "gui/widget_filebrowser.hh"
 #include "imgui.h"
 
 // no need to explicitly call it, just sets 0
@@ -112,7 +112,7 @@ int dt_filebrowser_display(dt_filebrowser_widget_t *w, const char mode) // 'f' o
     ImGui::EndChild();
 
     int wd = ImGui::GetWindowWidth()*0.496;
-    int escidx = ImGui::GetIO().KeyMap[ImGuiKey_Escape];
+//    int escidx = ImGui::GetIO().KeyMap[ImGuiKey_Escape];
     if(ImGui::Button("cancel", ImVec2(wd, 0)) )//|| ImGui::IsKeyPressed(escidx))
       ImGui::CloseCurrentPopup();
 

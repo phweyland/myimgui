@@ -1,5 +1,5 @@
 #pragma once
-#include "db.h" // for stringpool type
+#include "db/db.h" // for stringpool type
 
 // vkdtrc file support. this reads/writes a colon separated key:value store.
 // it supports getting and setting values, but is not thread-safe.

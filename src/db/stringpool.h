@@ -1,6 +1,6 @@
 #pragma once
 
-#include "murmur3.h"
+#include "db/murmur3.h"
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -93,10 +93,7 @@ dt_stringpool_get(
       sp->buf_cnt += sl+1;
       entry->next  = -1u;
       entry->val   = val;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstringop-truncation"
       strncpy(entry->buf, str, sl); // gcc does not understand the following line with the null termination
-#pragma GCC diagnostic pop
       entry->buf[sl] = 0; // explicitly null-terminate (potentially again, can't hurt)
       if(dedup) *dedup = entry->buf;
       return entry->val;

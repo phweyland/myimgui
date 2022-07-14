@@ -1,16 +1,16 @@
-#include "../core/log.h"
-#include "../core/fs.h"
-#include "../db/thumbnails.h"
-#include "gui.h"
-#include "render.h"
+#include "core/log.h"
+#include "core/fs.h"
+#include "db/thumbnails.h"
+#include "gui/gui.h"
+#include "gui/render.h"
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <stdlib.h>
 #include <time.h>
 
-const char *ap_name = "apdt";
 apdt_t apdt;
+char *ap_name = "apdt";
 
 void ap_gui_window_resize()
 {

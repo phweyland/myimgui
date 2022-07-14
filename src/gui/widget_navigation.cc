@@ -1,12 +1,12 @@
-#include "widget_navigation.hh"
+#include "gui/widget_navigation.hh"
 #include "imgui.h"
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 extern "C" {
-#include "../db/rc.h"
-#include "../gui/gui.h"
-#include "../core/log.h"
+#include "db/rc.h"
+#include "gui/gui.h"
+#include "core/log.h"
 }
 
 void ap_navigation_init(ap_navigation_widget_t *w, const int type)
@@ -45,7 +45,7 @@ void ap_navigation_open(ap_navigation_widget_t *w)
   char current[256];
   snprintf(current, sizeof(current), "%s", w->node[0] ? w->node : "root");
   ImGui::SameLine();
-  ImGui::Text(current);
+  ImGui::Text("%s", current);
 
   ImGui::BeginChild("nodelist", ImVec2(0, ImGui::GetFontSize() * 20.0f), 0);
 

@@ -1,9 +1,9 @@
-#include "../core/core.h"
-#include "../core/log.h"
-#include "../core/dlist.h"
-#include "../core/vk.h"
-#include "thumbnails.h"
-#include "../gui/gui.h"
+#include "core/core.h"
+#include "core/log.h"
+#include "core/dlist.h"
+#include "core/vk.h"
+#include "db/thumbnails.h"
+#include "gui/gui.h"
 #include <sys/stat.h>
 #include <zlib.h>
 #include <dirent.h>
@@ -617,7 +617,7 @@ int ap_start_vkdt_thumbnail_job(dt_thumbnails_t *tn, int *abort)
   return j.taskid;
 }
 
-int ap_reset_vkdt_thumbnail(dt_thumbnails_t *tn)
+void ap_reset_vkdt_thumbnail(dt_thumbnails_t *tn)
 {
   tn->img_th_req = tn->img_th_done;
 }
