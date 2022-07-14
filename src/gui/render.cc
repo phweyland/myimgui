@@ -776,7 +776,7 @@ extern "C" void ap_gui_render_frame_imgui()
             float w = apdt.thumbnails.thumb[tid].wd * scale;
             float h = apdt.thumbnails.thumb[tid].ht * scale;
 
-            if(ImGui::ThumbnailImage(
+            uint32_t ret = ImGui::ThumbnailImage(
                 i+k,
                 apdt.thumbnails.thumb[tid].dset,
                 ImVec2(w, h),
@@ -787,14 +787,7 @@ extern "C" void ap_gui_render_frame_imgui()
                 images[i+k].rating,  // rating
                 images[i+k].labels,  // labels
                 img,
-                0)) // nav_focus
-            {
-              char cmd[256];
-              snprintf(cmd, sizeof(cmd), "%svkdt %s/%s",
-                       dt_rc_get(&apdt.rc, "vkdt_folder", ""), images[i+k].path, images[i+k].filename);
-              FILE *handle = popen(cmd, "r");
-
-            }
+                0); // nav_focus
 
   //          ImGui::PopStyleColor(2);
 
@@ -804,43 +797,48 @@ extern "C" void ap_gui_render_frame_imgui()
   //            (vkdt.db.image[vkdt.db.collection[i]].labels & s_image_label_selected))
   //            ImGui::PopStyleColor(2);
 
-  /*          if(ret)
+            if(ret)
             {
-              vkdt.wstate.busy += 2;
+//              vkdt.wstate.busy += 2;
               if(ImGui::GetIO().KeyCtrl)
               {
-                if(vkdt.db.image[vkdt.db.collection[i]].labels & s_image_label_selected)
-                  dt_db_selection_remove(&vkdt.db, i);
-                else
-                  dt_db_selection_add(&vkdt.db, i);
+//                if(vkdt.db.image[vkdt.db.collection[i]].labels & s_image_label_selected)
+//                  dt_db_selection_remove(&vkdt.db, i);
+//                else
+//                  dt_db_selection_add(&vkdt.db, i);
               }
               else if(ImGui::GetIO().KeyShift)
               { // shift selects ranges
-                uint32_t colid = dt_db_current_colid(&vkdt.db);
-                if(colid != -1u)
-                {
-                  int a = MIN(colid, (uint32_t)i);
-                  int b = MAX(colid, (uint32_t)i);
-                  dt_db_selection_clear(&vkdt.db);
-                  for(int i=a;i<=b;i++)
-                    dt_db_selection_add(&vkdt.db, i);
-                }
+//                uint32_t colid = dt_db_current_colid(&vkdt.db);
+//                if(colid != -1u)
+//                {
+//                  int a = MIN(colid, (uint32_t)i);
+//                  int b = MAX(colid, (uint32_t)i);
+//                  dt_db_selection_clear(&vkdt.db);
+//                  for(int i=a;i<=b;i++)
+//                    dt_db_selection_add(&vkdt.db, i);
+//                }
               }
               else
               { // no modifier, select exactly this image:
-                if(dt_db_selection_contains(&vkdt.db, i) ||
-                  (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)))
+//                if(dt_db_selection_contains(&vkdt.db, i) ||
+//                  (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)))
+//                if(ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
+                if(ImGui::IsMouseDoubleClicked(0))
                 {
-                  dt_view_switch(s_view_darkroom);
+                  char cmd[256];
+                  snprintf(cmd, sizeof(cmd), "%svkdt %s/%s",
+                           dt_rc_get(&apdt.rc, "vkdt_folder", ""), images[i+k].path, images[i+k].filename);
+                  FILE *handle = popen(cmd, "r");
                 }
                 else
                 {
-                  dt_db_selection_clear(&vkdt.db);
-                  dt_db_selection_add(&vkdt.db, i);
+//                  dt_db_selection_clear(&vkdt.db);
+//                  dt_db_selection_add(&vkdt.db, i);
                 }
               }
             }
-            */
+
 
             if(i+k+1 >= cnt) break;
             if(k < ipl-1) ImGui::SameLine();
