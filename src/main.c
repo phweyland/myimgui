@@ -23,10 +23,10 @@ int main(int argc, char *argv[])
     dt_log(s_log_gui|s_log_err, "failed to init gui/swapchain");
     return 1;
   }
-  dt_thumbnails_init(&apdt.thumbnails, 400, 400, 1000, 1ul<<30);
+  dt_thumbnails_init(400, 400, 1000, 1ul<<30);
 
   // Main loop
-  while (!glfwWindowShouldClose(apdt.window))
+  while (!glfwWindowShouldClose(d.window))
   {
       // Poll and handle events (inputs, window resize, etc.)
       // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
@@ -40,7 +40,7 @@ int main(int argc, char *argv[])
 
   // Cleanup
   ap_gui_cleanup_imgui();
-  dt_thumbnails_cleanup(&apdt.thumbnails);
+  dt_thumbnails_cleanup();
   ap_gui_cleanup_vulkan();
   ap_gui_cleanup();
   threads_shutdown();

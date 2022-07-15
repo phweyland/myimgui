@@ -35,12 +35,12 @@ debug_test_list(
 
 VkResult
 dt_thumbnails_init(
-    dt_thumbnails_t *tn,
     const int wd,
     const int ht,
     const int cnt,
     const size_t heap_size)
 {
+  dt_thumbnails_t *tn = &d.thumbs;
   memset(tn, 0, sizeof(*tn));
 
   // TODO: getenv(XDG_CACHE_HOME)
@@ -79,7 +79,7 @@ dt_thumbnails_init(
   tn->img_th_nb = 10;
   tn->img_ths = calloc(tn->img_th_nb, sizeof(ap_image_t));
   tn->img_th_abort = 0;
-  ap_start_vkdt_thumbnail_job(tn, &tn->img_th_abort);
+  ap_start_vkdt_thumbnail_job();
 
   // alloc dummy image to get memory type bits and something to display
   VkFormat format = VK_FORMAT_BC1_RGB_SRGB_BLOCK;
@@ -108,18 +108,18 @@ dt_thumbnails_init(
 
   VkResult err;
   VkImage img;
-  err = vkCreateImage(apdt.device, &images_create_info, NULL, &img);
+  err = vkCreateImage(d.vk.device, &images_create_info, NULL, &img);
   check_vk_result(err);
   VkMemoryRequirements mem_req;
-  vkGetImageMemoryRequirements(apdt.device, img, &mem_req);
+  vkGetImageMemoryRequirements(d.vk.device, img, &mem_req);
   tn->memory_type_bits = mem_req.memoryTypeBits;
-  vkDestroyImage(apdt.device, img, VK_NULL_HANDLE);
+  vkDestroyImage(d.vk.device, img, VK_NULL_HANDLE);
   VkMemoryAllocateInfo mem_alloc_info = {
     .sType           = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
     .allocationSize  = heap_size,
     .memoryTypeIndex = qvk_get_memory_type(tn->memory_type_bits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
   };
-  err = vkAllocateMemory(apdt.device, &mem_alloc_info, 0, &tn->vkmem);
+  err = vkAllocateMemory(d.vk.device, &mem_alloc_info, 0, &tn->vkmem);
   check_vk_result(err);
   // create descriptor pool (keep at least one for each type)
   VkDescriptorPoolSize pool_sizes[] = {{
@@ -133,7 +133,7 @@ dt_thumbnails_init(
     .pPoolSizes    = pool_sizes,
     .maxSets       = tn->thumb_max,
   };
-  vkCreateDescriptorPool(apdt.device, &pool_info, 0, &tn->dset_pool);
+  vkCreateDescriptorPool(d.vk.device, &pool_info, 0, &tn->dset_pool);
   check_vk_result(err);
 
   // create a descriptor set layout
@@ -148,7 +148,7 @@ dt_thumbnails_init(
     .bindingCount = 1,
     .pBindings    = &binding,
   };
-  err = vkCreateDescriptorSetLayout(apdt.device, &dset_layout_info, 0, &tn->dset_layout);
+  err = vkCreateDescriptorSetLayout(d.vk.device, &dset_layout_info, 0, &tn->dset_layout);
   check_vk_result(err);
 
   VkDescriptorSetAllocateInfo dset_info = {
@@ -159,14 +159,14 @@ dt_thumbnails_init(
   };
   for(int i=0;i<tn->thumb_max;i++)
   {
-    err = vkAllocateDescriptorSets(apdt.device, &dset_info, &tn->thumb[i].dset);
+    err = vkAllocateDescriptorSets(d.vk.device, &dset_info, &tn->thumb[i].dset);
     check_vk_result(err);
   }
-  apdt.UploadBuffer = VK_NULL_HANDLE;
-  apdt.UploadBufferSize = 0;
+  d.vk.image_buffer = VK_NULL_HANDLE;
+  d.vk.image_buffer_size = 0;
 
   uint32_t id = 0;
-  if(dt_thumbnails_load_one(tn, "data/busybee.bc1", &id) != VK_SUCCESS)
+  if(dt_thumbnails_load_one("data/busybee.bc1", &id) != VK_SUCCESS)
   {
     dt_log(s_log_err|s_log_db, "could not load required thumbnail symbols!");
     return VK_INCOMPLETE;
@@ -174,43 +174,45 @@ dt_thumbnails_init(
   return VK_SUCCESS;
 }
 
-void dt_thumbnails_cleanup(dt_thumbnails_t *tn)
+void dt_thumbnails_cleanup()
 {
+  dt_thumbnails_t *tn = &d.thumbs;
   for(int i=0;i<tn->thumb_max;i++)
   {
-    if(tn->thumb[i].image)      vkDestroyImage    (apdt.device, tn->thumb[i].image,      0);
-    if(tn->thumb[i].image_view) vkDestroyImageView(apdt.device, tn->thumb[i].image_view, 0);
+    if(tn->thumb[i].image)      vkDestroyImage    (d.vk.device, tn->thumb[i].image,      0);
+    if(tn->thumb[i].image_view) vkDestroyImageView(d.vk.device, tn->thumb[i].image_view, 0);
   }
   free(tn->thumb);
   tn->thumb = 0;
-  vkDestroySampler(apdt.device, apdt.tex_sampler, 0);
-  vkDestroySampler(apdt.device, apdt.tex_sampler_nearest, 0);
-  if(tn->dset_layout) vkDestroyDescriptorSetLayout(apdt.device, tn->dset_layout, 0);
-  if(tn->dset_pool)   vkDestroyDescriptorPool     (apdt.device, tn->dset_pool,   0);
-  if(tn->vkmem)       vkFreeMemory                (apdt.device, tn->vkmem,       0);
+  vkDestroySampler(d.vk.device, d.vk.tex_sampler, 0);
+  vkDestroySampler(d.vk.device, d.vk.tex_sampler_nearest, 0);
+  if(tn->dset_layout) vkDestroyDescriptorSetLayout(d.vk.device, tn->dset_layout, 0);
+  if(tn->dset_pool)   vkDestroyDescriptorPool     (d.vk.device, tn->dset_pool,   0);
+  if(tn->vkmem)       vkFreeMemory                (d.vk.device, tn->vkmem,       0);
   dt_vkalloc_cleanup(&tn->alloc);
-  if(apdt.UploadBuffer)
+  if(d.vk.image_buffer)
   {
-    vkFreeMemory(apdt.device, apdt.UploadBufferMemory, 0);
-    vkDestroyBuffer(apdt.device, apdt.UploadBuffer, 0);
+    vkFreeMemory(d.vk.device, d.vk.image_buffer_memory, 0);
+    vkDestroyBuffer(d.vk.device, d.vk.image_buffer, 0);
   }
   free(tn->img_ths);
 }
 
-void dt_thumbnails_load_list(dt_thumbnails_t *tn, ap_col_t *col, uint32_t beg, uint32_t end)
+void dt_thumbnails_load_list(uint32_t beg, uint32_t end)
 {
+  dt_thumbnails_t *tn = &d.thumbs;
   // for all images in given collection
   for(int k=beg;k<end;k++)
   {
-    if(k >= col->image_cnt) break; // safety first. this probably means this job is stale! big danger!
-    ap_image_t *img = &col->images[k];
+    if(k >= d.img.cnt) break; // safety first. this probably means this job is stale! big danger!
+    ap_image_t *img = &d.img.images[k];
 
     if(img->thumbnail == 0)
     { // not loaded
       char filename[PATH_MAX+100] = {0};
       snprintf(filename, sizeof(filename), "%s/%x.bc1", tn->cachedir, img->hash);
       img->thumbnail = -1u;
-      if(dt_thumbnails_load_one(tn, filename, &img->thumbnail))
+      if(dt_thumbnails_load_one(filename, &img->thumbnail))
         img->thumbnail = 0;
     }
     else if(img->thumbnail > 0 && img->thumbnail < tn->thumb_max)
@@ -276,7 +278,7 @@ static int _thumbnails_read(const char *filename, void *mapped)
 
 // load a previously cached thumbnail to a VkImage onto the GPU.
 // returns VK_SUCCESS on success
-VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index)
+VkResult dt_thumbnails_load_one(const char *filename, uint32_t *thumb_index)
 {
   VkResult err;
   char imgfilename[PATH_MAX+100] = {0};
@@ -286,7 +288,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
   }
   else
   {
-    const char* dt_dir = dt_rc_get(&apdt.rc, "vkdt_folder", "");
+    const char* dt_dir = dt_rc_get(&d.rc, "vkdt_folder", "");
     snprintf(imgfilename, sizeof(imgfilename), "%s/%s", dt_dir, filename);
   }
   struct stat statbuf = {0};
@@ -295,29 +297,27 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
   dt_thumbnail_t *th = 0;
   if(*thumb_index == -1u)
   { // allocate thumbnail from lru list
-    // threads_mutex_lock(&tn->lru_lock);
-    th = tn->lru;
-    tn->lru = tn->lru->next;             // move head
-    if(tn->mru == th) tn->mru = th->prev;// going to remove mru, need to move
-    DLIST_RM_ELEMENT(th);                // disconnect old head
-    tn->mru = DLIST_APPEND(tn->mru, th); // append to end and move tail
-    *thumb_index = th - tn->thumb;
-    // threads_mutex_unlock(&tn->lru_lock);
+    th = d.thumbs.lru;
+    d.thumbs.lru = d.thumbs.lru->next;             // move head
+    if(d.thumbs.mru == th) d.thumbs.mru = th->prev;// going to remove mru, need to move
+    DLIST_RM_ELEMENT(th);                                  // disconnect old head
+    d.thumbs.mru = DLIST_APPEND(d.thumbs.mru, th); // append to end and move tail
+    *thumb_index = th - d.thumbs.thumb;
   }
-  else th = tn->thumb + *thumb_index;
+  else th = d.thumbs.thumb + *thumb_index;
 
   if(*thumb_index == 0 && th->image)
     return VK_SUCCESS;
 
   // cache eviction:
   // clean up memory in case there was something here:
-  if(th->image)      vkDestroyImage(apdt.device, th->image, VK_NULL_HANDLE);
-  if(th->image_view) vkDestroyImageView(apdt.device, th->image_view, VK_NULL_HANDLE);
+  if(th->image)      vkDestroyImage(d.vk.device, th->image, VK_NULL_HANDLE);
+  if(th->image_view) vkDestroyImageView(d.vk.device, th->image_view, VK_NULL_HANDLE);
   th->image      = 0;
   th->image_view = 0;
   th->imgid      = -1u;
   th->offset     = -1u;
-  if(th->mem)    dt_vkfree(&tn->alloc, th->mem);
+  if(th->mem)    dt_vkfree(&d.thumbs.alloc, th->mem);
   th->mem        = 0;
   // keep dset and prev/next dlist pointers! (i.e. don't memset th)
 
@@ -349,14 +349,14 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
     .initialLayout         = VK_IMAGE_LAYOUT_UNDEFINED,
   };
 
-  err = vkCreateImage(apdt.device, &images_create_info, NULL, &th->image);
+  err = vkCreateImage(d.vk.device, &images_create_info, NULL, &th->image);
   check_vk_result(err);
   VkMemoryRequirements mem_req;
-  vkGetImageMemoryRequirements(apdt.device, th->image, &mem_req);
-  if(mem_req.memoryTypeBits != tn->memory_type_bits)
+  vkGetImageMemoryRequirements(d.vk.device, th->image, &mem_req);
+  if(mem_req.memoryTypeBits != d.thumbs.memory_type_bits)
     dt_log(s_log_vk|s_log_err, "[thm] memory type bits don't match!");
 
-  dt_vkmem_t *mem = dt_vkalloc(&tn->alloc, mem_req.size, mem_req.alignment);
+  dt_vkmem_t *mem = dt_vkalloc(&d.thumbs.alloc, mem_req.size, mem_req.alignment);
   // TODO: if (!mem) we have not enough memory! need to handle this now (more cache eviction?)
   // TODO: could do batch cleanup in case we need memory:
   // walk lru list from front and kill all contents (see above)
@@ -378,7 +378,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
     },
   };
   VkDescriptorImageInfo img_info = {
-    .sampler       = th->wd > 32 ? apdt.tex_sampler : apdt.tex_sampler_nearest,
+    .sampler       = th->wd > 32 ? d.vk.tex_sampler : d.vk.tex_sampler_nearest,
     .imageLayout   = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
   };
   VkWriteDescriptorSet img_dset = {
@@ -391,27 +391,27 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
   };
 
   // bind image memory, create image view and descriptor set (used to display later on):
-  vkBindImageMemory(apdt.device, th->image, tn->vkmem, th->offset);
+  vkBindImageMemory(d.vk.device, th->image, d.thumbs.vkmem, th->offset);
   images_view_create_info.image = th->image;
-  err = vkCreateImageView(apdt.device, &images_view_create_info, NULL, &th->image_view);
+  err = vkCreateImageView(d.vk.device, &images_view_create_info, NULL, &th->image_view);
   check_vk_result(err);
 
   img_dset.dstSet    = th->dset;
   img_info.imageView = th->image_view;
-  vkUpdateDescriptorSets(apdt.device, 1, &img_dset, 0, NULL);
+  vkUpdateDescriptorSets(d.vk.device, 1, &img_dset, 0, NULL);
 
   clock_t beg = clock();
 
-  if(mem_req.size > apdt.UploadBufferSize)
+  if(mem_req.size > d.vk.image_buffer_size)
   {
-    if(apdt.UploadBuffer)
+    if(d.vk.image_buffer)
     {
-      vkFreeMemory(apdt.device, apdt.UploadBufferMemory, 0);
-      vkDestroyBuffer(apdt.device, apdt.UploadBuffer, 0);
-      apdt.UploadBuffer = VK_NULL_HANDLE;
+      vkFreeMemory(d.vk.device, d.vk.image_buffer_memory, 0);
+      vkDestroyBuffer(d.vk.device, d.vk.image_buffer, 0);
+      d.vk.image_buffer = VK_NULL_HANDLE;
     }
   }
-  if(apdt.UploadBuffer == VK_NULL_HANDLE)
+  if(d.vk.image_buffer == VK_NULL_HANDLE)
   // Create the Upload Buffer:
   {
     VkBufferCreateInfo buffer_info = {
@@ -420,26 +420,26 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
       .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
       .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
-    err = vkCreateBuffer(apdt.device, &buffer_info, 0, &apdt.UploadBuffer);
-    apdt.UploadBufferSize = mem_req.size;
+    err = vkCreateBuffer(d.vk.device, &buffer_info, 0, &d.vk.image_buffer);
+    d.vk.image_buffer_size = mem_req.size;
     check_vk_result(err);
     VkMemoryRequirements req;
-    vkGetBufferMemoryRequirements(apdt.device, apdt.UploadBuffer, &req);
+    vkGetBufferMemoryRequirements(d.vk.device, d.vk.image_buffer, &req);
     VkMemoryAllocateInfo alloc_info = {
       .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
       .allocationSize = req.size
     };
     alloc_info.memoryTypeIndex = qvk_get_memory_type(req.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-    err = vkAllocateMemory(apdt.device, &alloc_info, 0, &apdt.UploadBufferMemory);
+    err = vkAllocateMemory(d.vk.device, &alloc_info, 0, &d.vk.image_buffer_memory);
     check_vk_result(err);
-    err = vkBindBufferMemory(apdt.device, apdt.UploadBuffer, apdt.UploadBufferMemory, 0);
+    err = vkBindBufferMemory(d.vk.device, d.vk.image_buffer, d.vk.image_buffer_memory, 0);
     check_vk_result(err);
   }
   int res = VK_SUCCESS;
   // Upload to Buffer:
   {
     char* mapped = 0;
-    err = vkMapMemory(apdt.device, apdt.UploadBufferMemory, 0, mem_req.size, 0, (void**)(&mapped));
+    err = vkMapMemory(d.vk.device, d.vk.image_buffer_memory, 0, mem_req.size, 0, (void**)(&mapped));
     check_vk_result(err);
     if(_thumbnails_read(imgfilename, mapped))
     {
@@ -448,11 +448,11 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
     }
     VkMappedMemoryRange range[1] = {};
     range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-    range[0].memory = apdt.UploadBufferMemory;
+    range[0].memory = d.vk.image_buffer_memory;
     range[0].size = mem_req.size;
-    err = vkFlushMappedMemoryRanges(apdt.device, 1, range);
+    err = vkFlushMappedMemoryRanges(d.vk.device, 1, range);
     check_vk_result(err);
-    vkUnmapMemory(apdt.device, apdt.UploadBufferMemory);
+    vkUnmapMemory(d.vk.device, d.vk.image_buffer_memory);
   }
   // Copy to Image:
   if(res == VK_SUCCESS)
@@ -461,9 +461,9 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
     VkFence fence;
     ap_gui_get_buffer(NULL, &command_buffer, &fence);
 
-    err = vkWaitForFences(apdt.device, 1, &fence, VK_TRUE, 1ul<<40);
+    err = vkWaitForFences(d.vk.device, 1, &fence, VK_TRUE, 1ul<<40);
     check_vk_result(err);
-    err = vkResetFences(apdt.device, 1, &fence);
+    err = vkResetFences(d.vk.device, 1, &fence);
     check_vk_result(err);
 
     VkCommandBufferBeginInfo begin_info = {};
@@ -492,7 +492,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
       .imageExtent.height = th->ht,
       .imageExtent.depth = 1
     };
-    vkCmdCopyBufferToImage(command_buffer, apdt.UploadBuffer, th->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+    vkCmdCopyBufferToImage(command_buffer, d.vk.image_buffer, th->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
     VkImageMemoryBarrier use_barrier[1] = {};
     use_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -515,7 +515,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
     };
     err = vkEndCommandBuffer(command_buffer);
     check_vk_result(err);
-    err = vkQueueSubmit(apdt.queue, 1, &end_info, fence);
+    err = vkQueueSubmit(d.vk.queue, 1, &end_info, fence);
     check_vk_result(err);
   }
 
@@ -527,60 +527,58 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
 
 typedef struct vkdt_job_t
 {
-  dt_thumbnails_t *tn;
-  int *abort;
   int taskid;
 } vkdt_job_t;
 
-int ap_request_vkdt_thumbnail(dt_thumbnails_t *tn, ap_image_t *img)
+int ap_request_vkdt_thumbnail(ap_image_t *img)
 {
-  uint32_t cnt = tn->img_th_req >= tn->img_th_done ? tn->img_th_req - tn->img_th_done : tn->img_th_req + tn->img_th_nb - tn->img_th_done;
+  uint32_t cnt = d.thumbs.img_th_req >= d.thumbs.img_th_done
+                 ? d.thumbs.img_th_req - d.thumbs.img_th_done
+                 : d.thumbs.img_th_req + d.thumbs.img_th_nb - d.thumbs.img_th_done;
 
-  if(cnt >= tn->img_th_nb - 1)
+  if(cnt >= d.thumbs.img_th_nb - 1)
     return 1;
   if(cnt)
   {
     for(int i = 0; i < cnt; i++)
     {
-      uint32_t j = tn->img_th_done + i;
-      if(j == tn->img_th_nb)
+      uint32_t j = d.thumbs.img_th_done + i;
+      if(j == d.thumbs.img_th_nb)
         j = 0;
-      if(tn->img_ths[j].imgid == img->imgid)
+      if(d.thumbs.img_ths[j].imgid == img->imgid)
         return 0;
     }
   }
-  memcpy(&tn->img_ths[tn->img_th_req], img, sizeof(ap_image_t));
+  memcpy(&d.thumbs.img_ths[d.thumbs.img_th_req], img, sizeof(ap_image_t));
 
-  tn->img_th_req++;
-  if(tn->img_th_req == tn->img_th_nb)
-    tn->img_th_req = 0;
+  d.thumbs.img_th_req++;
+  if(d.thumbs.img_th_req == d.thumbs.img_th_nb)
+    d.thumbs.img_th_req = 0;
   return 0;
 }
 
 void vkdt_work(uint32_t item, void *arg)
 {
-  vkdt_job_t *j = (vkdt_job_t *)arg;
-  dt_thumbnails_t *tn = j->tn;
   struct timespec ts;
   ts.tv_sec = 0;
   ts.tv_nsec = 10000;
 
   while(1)
   {
-    if(*j->abort)
+    if(d.thumbs.img_th_abort)
       return;
     nanosleep(&ts, NULL);
-    if(tn->img_th_req != tn->img_th_done)
+    if(d.thumbs.img_th_req != d.thumbs.img_th_done)
     {
-      ap_image_t *img = &tn->img_ths[tn->img_th_done];
+      ap_image_t *img = &d.thumbs.img_ths[d.thumbs.img_th_done];
       char cmd[512];
       const char *f2 = img->filename + strlen(img->filename);
       while(f2 > img->filename && *f2 != '.') f2--;
       snprintf(cmd, sizeof(cmd), "%svkdt-cli -g %s/%s.cfg --width 400 --height 400 "
                                  "--format o-bc1 --filename %s/%x.bc1 "
                                  "--config param:f2srgb:main:usemat:0", // rec2020
-               dt_rc_get(&apdt.rc, "vkdt_folder", ""), img->path, img->filename,
-               apdt.thumbnails.cachedir, img->hash);
+               dt_rc_get(&d.rc, "vkdt_folder", ""), img->path, img->filename,
+               d.thumbs.cachedir, img->hash);
 
       double beg = dt_time();
       int res = system(cmd);  // launch vkdt-cli
@@ -592,32 +590,30 @@ void vkdt_work(uint32_t item, void *arg)
         // mark as dead
         char cfgfilename[512];
         char bc1filename[512];
-        snprintf(cfgfilename, sizeof(cfgfilename), "%s/%x.bc1", apdt.thumbnails.cachedir, img->hash);
-        snprintf(bc1filename, sizeof(bc1filename), "%sdata/bomb.bc1", dt_rc_get(&apdt.rc, "vkdt_folder", ""));
+        snprintf(cfgfilename, sizeof(cfgfilename), "%s/%x.bc1", d.thumbs.cachedir, img->hash);
+        snprintf(bc1filename, sizeof(bc1filename), "%sdata/bomb.bc1", dt_rc_get(&d.rc, "vkdt_folder", ""));
         // vkdt-cli failure on some jpg or tiff ?
         link(bc1filename, cfgfilename);
       }
 
-      if(tn->img_th_done != tn->img_th_req)
+      if(d.thumbs.img_th_done != d.thumbs.img_th_req)
       {
-        tn->img_th_done++;
-        if(tn->img_th_done == tn->img_th_nb)
-          tn->img_th_done = 0;
+        d.thumbs.img_th_done++;
+        if(d.thumbs.img_th_done == d.thumbs.img_th_nb)
+          d.thumbs.img_th_done = 0;
       }
     }
   }
 }
 
-int ap_start_vkdt_thumbnail_job(dt_thumbnails_t *tn, int *abort)
+int ap_start_vkdt_thumbnail_job()
 {
   static vkdt_job_t j;
-  j.tn = tn;
-  j.abort = abort;
   j.taskid = threads_task(1, -1, &j, vkdt_work, NULL);
   return j.taskid;
 }
 
-void ap_reset_vkdt_thumbnail(dt_thumbnails_t *tn)
+void ap_reset_vkdt_thumbnail()
 {
-  tn->img_th_req = tn->img_th_done;
+  d.thumbs.img_th_req = d.thumbs.img_th_done;
 }

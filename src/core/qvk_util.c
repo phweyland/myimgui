@@ -22,9 +22,9 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 uint32_t
 qvk_get_memory_type(uint32_t mem_req_type_bits, VkMemoryPropertyFlags mem_prop)
 {
-	for(uint32_t i = 0; i < apdt.mem_properties.memoryTypeCount; i++) {
+	for(uint32_t i = 0; i < d.vk.mem_properties.memoryTypeCount; i++) {
 		if(mem_req_type_bits & (1 << i)) {
-			if((apdt.mem_properties.memoryTypes[i].propertyFlags & mem_prop) == mem_prop)
+			if((d.vk.mem_properties.memoryTypes[i].propertyFlags & mem_prop) == mem_prop)
 				return i;
 		}
 	}

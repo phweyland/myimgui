@@ -14,7 +14,7 @@
 // to imgid is done in the dt_image_t struct.
 //
 
-typedef struct ap_col_t ap_col_t;
+typedef struct ap_img_t ap_img_t;
 typedef struct ap_image_t ap_image_t;
 
 typedef struct dt_thumbnail_t
@@ -62,24 +62,23 @@ dt_thumbnails_t;
 
 // init a thumbnail cache
 VkResult dt_thumbnails_init(
-    dt_thumbnails_t *tn,     // struct to be constructed
     const int wd,            // max width of thumbnail
     const int ht,            // max height of thumbnail
     const int cnt,           // max number of thumbnails
     const size_t heap_size); // max heap size in bytes (allocated on GPU)
 
 // free all resources
-void dt_thumbnails_cleanup(dt_thumbnails_t *tn);
+void dt_thumbnails_cleanup();
 
 // load one bc1 thumbnail for a given filename. fills thumb_index and returns
 // VK_SUCCESS if all went well.
-VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index);
+VkResult dt_thumbnails_load_one(const char *filename, uint32_t *thumb_index);
 // update thumbnails for a list of image ids.
-void dt_thumbnails_load_list(dt_thumbnails_t *tn, ap_col_t *col, uint32_t beg, uint32_t end);
+void dt_thumbnails_load_list(uint32_t beg, uint32_t end);
 
 // request the thumbnail generation
-int ap_request_vkdt_thumbnail(dt_thumbnails_t *tn, ap_image_t *img);
+int ap_request_vkdt_thumbnail(ap_image_t *img);
 // start thumbnail generation job
-int ap_start_vkdt_thumbnail_job(dt_thumbnails_t *tn, int *abort);
+int ap_start_vkdt_thumbnail_job();
 // reset the thumbnail generation
-void ap_reset_vkdt_thumbnail(dt_thumbnails_t *tn);
+void ap_reset_vkdt_thumbnail();

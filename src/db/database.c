@@ -184,7 +184,7 @@ static void _create_schema(ap_db_t *db)
 
 void ap_db_init()
 {
-  apdt.db = &ap_db;
+  d.db = &ap_db;
 //  sqlite3_config(SQLITE_CONFIG_SERIALIZED);
   sqlite3_initialize();
   char dbfile[512];

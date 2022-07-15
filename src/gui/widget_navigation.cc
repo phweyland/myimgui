@@ -14,8 +14,8 @@ void ap_navigation_init(ap_navigation_widget_t *w, const int type)
   memset(w, 0, sizeof(*w));
   w->type = type;
   snprintf(w->sep, sizeof(w->sep), "%s", type == 0 ? "/" : "|");
-  const char *node = type == 0 ? dt_rc_get(&apdt.rc, "gui/last_folder", "")
-                               : dt_rc_get(&apdt.rc, "gui/last_tag", "");
+  const char *node = type == 0 ? dt_rc_get(&d.rc, "gui/last_folder", "")
+                               : dt_rc_get(&d.rc, "gui/last_tag", "");
   if(node[0])
     snprintf(w->node, sizeof(w->node), "%s", node);
   w->count = -1u;

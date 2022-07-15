@@ -137,17 +137,17 @@ static void SetupVulkan(const char** extensions, uint32_t extensions_count)
       }
     }
 
-    apdt.physical_device = gpus[use_gpu];
+    d.vk.physical_device = gpus[use_gpu];
     free(gpus);
-    vkGetPhysicalDeviceMemoryProperties(apdt.physical_device, &apdt.mem_properties);
+    vkGetPhysicalDeviceMemoryProperties(d.vk.physical_device, &d.vk.mem_properties);
   }
 
   // Select graphics queue family
   {
     uint32_t count;
-    vkGetPhysicalDeviceQueueFamilyProperties(apdt.physical_device, &count, NULL);
+    vkGetPhysicalDeviceQueueFamilyProperties(d.vk.physical_device, &count, NULL);
     VkQueueFamilyProperties* queues = (VkQueueFamilyProperties*)malloc(sizeof(VkQueueFamilyProperties) * count);
-    vkGetPhysicalDeviceQueueFamilyProperties(apdt.physical_device, &count, queues);
+    vkGetPhysicalDeviceQueueFamilyProperties(d.vk.physical_device, &count, queues);
     for (uint32_t i = 0; i < count; i++)
       if (queues[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
       {
@@ -174,9 +174,9 @@ static void SetupVulkan(const char** extensions, uint32_t extensions_count)
     create_info.pQueueCreateInfos = queue_info;
     create_info.enabledExtensionCount = device_extension_count;
     create_info.ppEnabledExtensionNames = device_extensions;
-    err = vkCreateDevice(apdt.physical_device, &create_info, g_Allocator, &apdt.device);
+    err = vkCreateDevice(d.vk.physical_device, &create_info, g_Allocator, &d.vk.device);
     check_vk_result(err);
-    vkGetDeviceQueue(apdt.device, g_QueueFamily, 0, &apdt.queue);
+    vkGetDeviceQueue(d.vk.device, g_QueueFamily, 0, &d.vk.queue);
   }
 
   // Create Descriptor Pool
@@ -201,7 +201,7 @@ static void SetupVulkan(const char** extensions, uint32_t extensions_count)
     pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
     pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
     pool_info.pPoolSizes = pool_sizes;
-    err = vkCreateDescriptorPool(apdt.device, &pool_info, g_Allocator, &g_DescriptorPool);
+    err = vkCreateDescriptorPool(d.vk.device, &pool_info, g_Allocator, &g_DescriptorPool);
     check_vk_result(err);
   }
   {
@@ -220,7 +220,7 @@ static void SetupVulkan(const char** extensions, uint32_t extensions_count)
       sampler_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
       sampler_info.minLod                  = 0.0f;
       sampler_info.maxLod                  = 128.0f;
-    err = vkCreateSampler(apdt.device, &sampler_info, NULL, &apdt.tex_sampler);
+    err = vkCreateSampler(d.vk.device, &sampler_info, NULL, &d.vk.tex_sampler);
     check_vk_result(err);
     VkSamplerCreateInfo sampler_nearest_info = {};
       sampler_nearest_info.sType                   = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -234,7 +234,7 @@ static void SetupVulkan(const char** extensions, uint32_t extensions_count)
       sampler_nearest_info.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
       sampler_nearest_info.unnormalizedCoordinates = VK_FALSE;
       sampler_nearest_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-    vkCreateSampler(apdt.device, &sampler_nearest_info, NULL, &apdt.tex_sampler_nearest);
+    vkCreateSampler(d.vk.device, &sampler_nearest_info, NULL, &d.vk.tex_sampler_nearest);
     check_vk_result(err);
   }
 }
@@ -247,7 +247,7 @@ static void SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface
 
   // Check for WSI support
   VkBool32 res;
-  vkGetPhysicalDeviceSurfaceSupportKHR(apdt.physical_device, g_QueueFamily, wd->Surface, &res);
+  vkGetPhysicalDeviceSurfaceSupportKHR(d.vk.physical_device, g_QueueFamily, wd->Surface, &res);
   if (res != VK_TRUE)
   {
     fprintf(stderr, "Error no WSI support on physical device 0\n");
@@ -257,7 +257,7 @@ static void SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface
   // Select Surface Format
   const VkFormat requestSurfaceImageFormat[] = { VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_R8G8B8A8_UNORM, VK_FORMAT_B8G8R8_UNORM, VK_FORMAT_R8G8B8_UNORM };
   const VkColorSpaceKHR requestSurfaceColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
-  wd->SurfaceFormat = ImGui_ImplVulkanH_SelectSurfaceFormat(apdt.physical_device, wd->Surface, requestSurfaceImageFormat, (size_t)IM_ARRAYSIZE(requestSurfaceImageFormat), requestSurfaceColorSpace);
+  wd->SurfaceFormat = ImGui_ImplVulkanH_SelectSurfaceFormat(d.vk.physical_device, wd->Surface, requestSurfaceImageFormat, (size_t)IM_ARRAYSIZE(requestSurfaceImageFormat), requestSurfaceColorSpace);
 
   // Select Present Mode
 #ifdef IMGUI_UNLIMITED_FRAME_RATE
@@ -265,17 +265,17 @@ static void SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd, VkSurfaceKHR surface
 #else
   VkPresentModeKHR present_modes[] = { VK_PRESENT_MODE_FIFO_KHR };
 #endif
-  wd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(apdt.physical_device, wd->Surface, &present_modes[0], IM_ARRAYSIZE(present_modes));
+  wd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(d.vk.physical_device, wd->Surface, &present_modes[0], IM_ARRAYSIZE(present_modes));
   //printf("[vulkan] Selected PresentMode = %d\n", wd->PresentMode);
 
   // Create SwapChain, RenderPass, Framebuffer, etc.
   IM_ASSERT(g_MinImageCount >= 2);
-  ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, apdt.physical_device, apdt.device, wd, g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
+  ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, d.vk.physical_device, d.vk.device, wd, g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
 }
 
 static void CleanupVulkan()
 {
-  vkDestroyDescriptorPool(apdt.device, g_DescriptorPool, g_Allocator);
+  vkDestroyDescriptorPool(d.vk.device, g_DescriptorPool, g_Allocator);
 
 #ifdef IMGUI_VULKAN_DEBUG_REPORT
   // Remove the debug report callback
@@ -283,13 +283,13 @@ static void CleanupVulkan()
   vkDestroyDebugReportCallbackEXT(g_Instance, g_DebugReport, g_Allocator);
 #endif // IMGUI_VULKAN_DEBUG_REPORT
 
-  vkDestroyDevice(apdt.device, g_Allocator);
+  vkDestroyDevice(d.vk.device, g_Allocator);
   vkDestroyInstance(g_Instance, g_Allocator);
 }
 
 static void CleanupVulkanWindow()
 {
-  ImGui_ImplVulkanH_DestroyWindow(g_Instance, apdt.device, &g_MainWindowData, g_Allocator);
+  ImGui_ImplVulkanH_DestroyWindow(g_Instance, d.vk.device, &g_MainWindowData, g_Allocator);
 }
 
 static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data)
@@ -298,7 +298,7 @@ static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data)
 
   VkSemaphore image_acquired_semaphore  = wd->FrameSemaphores[wd->SemaphoreIndex].ImageAcquiredSemaphore;
   VkSemaphore render_complete_semaphore = wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
-  err = vkAcquireNextImageKHR(apdt.device, wd->Swapchain, UINT64_MAX, image_acquired_semaphore, VK_NULL_HANDLE, &wd->FrameIndex);
+  err = vkAcquireNextImageKHR(d.vk.device, wd->Swapchain, UINT64_MAX, image_acquired_semaphore, VK_NULL_HANDLE, &wd->FrameIndex);
   if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
   {
     g_SwapChainRebuild = true;
@@ -308,14 +308,14 @@ static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data)
 
   ImGui_ImplVulkanH_Frame* fd = &wd->Frames[wd->FrameIndex];
   {
-    err = vkWaitForFences(apdt.device, 1, &fd->Fence, VK_TRUE, UINT64_MAX);    // wait indefinitely instead of periodically checking
+    err = vkWaitForFences(d.vk.device, 1, &fd->Fence, VK_TRUE, UINT64_MAX);    // wait indefinitely instead of periodically checking
     check_vk_result(err);
 
-    err = vkResetFences(apdt.device, 1, &fd->Fence);
+    err = vkResetFences(d.vk.device, 1, &fd->Fence);
     check_vk_result(err);
   }
   {
-    err = vkResetCommandPool(apdt.device, fd->CommandPool, 0);
+    err = vkResetCommandPool(d.vk.device, fd->CommandPool, 0);
     check_vk_result(err);
     VkCommandBufferBeginInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -354,7 +354,7 @@ static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data)
 
     err = vkEndCommandBuffer(fd->CommandBuffer);
     check_vk_result(err);
-    err = vkQueueSubmit(apdt.queue, 1, &info, fd->Fence);
+    err = vkQueueSubmit(d.vk.queue, 1, &info, fd->Fence);
     check_vk_result(err);
   }
 }
@@ -371,7 +371,7 @@ static void FramePresent(ImGui_ImplVulkanH_Window* wd)
   info.swapchainCount = 1;
   info.pSwapchains = &wd->Swapchain;
   info.pImageIndices = &wd->FrameIndex;
-  VkResult err = vkQueuePresentKHR(apdt.queue, &info);
+  VkResult err = vkQueuePresentKHR(d.vk.queue, &info);
   if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
   {
     g_SwapChainRebuild = true;
@@ -406,7 +406,7 @@ extern "C" int ap_gui_init_imgui()
     return 1;
 
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  apdt.window = glfwCreateWindow(1280, 720, "My app", NULL, NULL);
+  d.window = glfwCreateWindow(1280, 720, "My app", NULL, NULL);
 
   // Setup Vulkan
   if (!glfwVulkanSupported())
@@ -414,19 +414,19 @@ extern "C" int ap_gui_init_imgui()
     printf("GLFW: Vulkan Not Supported\n");
     return 1;
   }
-  apdt.device = VK_NULL_HANDLE;
+  d.vk.device = VK_NULL_HANDLE;
   uint32_t extensions_count = 0;
   const char** extensions = glfwGetRequiredInstanceExtensions(&extensions_count);
   SetupVulkan(extensions, extensions_count);
 
   // Create Window Surface
   VkSurfaceKHR surface;
-  VkResult err = glfwCreateWindowSurface(g_Instance, apdt.window, g_Allocator, &surface);
+  VkResult err = glfwCreateWindowSurface(g_Instance, d.window, g_Allocator, &surface);
   check_vk_result(err);
 
   // Create Framebuffers
   int w, h;
-  glfwGetFramebufferSize(apdt.window, &w, &h);
+  glfwGetFramebufferSize(d.window, &w, &h);
   ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
   SetupVulkanWindow(wd, surface, w, h);
 
@@ -440,17 +440,17 @@ extern "C" int ap_gui_init_imgui()
   // Setup Dear ImGui style
   // ImGui::StyleColorsDark();
   // ImGui::StyleColorsClassic();
-  apdt.theme = dt_rc_get_int(&apdt.rc, "gui/theme", 1);
-  themes_set[apdt.theme]();
+  d.theme = dt_rc_get_int(&d.rc, "gui/theme", 1);
+  themes_set[d.theme]();
 
   // Setup Platform/Renderer backends
-  ImGui_ImplGlfw_InitForVulkan(apdt.window, true);
+  ImGui_ImplGlfw_InitForVulkan(d.window, true);
   ImGui_ImplVulkan_InitInfo init_info = {};
   init_info.Instance = g_Instance;
-  init_info.PhysicalDevice = apdt.physical_device;
-  init_info.Device = apdt.device;
+  init_info.PhysicalDevice = d.vk.physical_device;
+  init_info.Device = d.vk.device;
   init_info.QueueFamily = g_QueueFamily;
-  init_info.Queue = apdt.queue;
+  init_info.Queue = d.vk.queue;
   init_info.PipelineCache = g_PipelineCache;
   init_info.DescriptorPool = g_DescriptorPool;
   init_info.Subpass = 0;
@@ -483,7 +483,7 @@ extern "C" int ap_gui_init_imgui()
       -0.12455356,  1.13292608, -0.0083496,
       -0.01815511, -0.100603  ,  1.11899813 };
 
-    const char* dt_dir = dt_rc_get(&apdt.rc, "vkdt_folder", "");
+    const char* dt_dir = dt_rc_get(&d.rc, "vkdt_folder", "");
     snprintf(tmp, sizeof(tmp), "%s/display.%s", dt_dir, name0);
     FILE *f = fopen(tmp, "r");
     if(f)
@@ -535,7 +535,7 @@ extern "C" int ap_gui_init_imgui()
     VkCommandPool command_pool = wd->Frames[wd->FrameIndex].CommandPool;
     VkCommandBuffer command_buffer = wd->Frames[wd->FrameIndex].CommandBuffer;
 
-    err = vkResetCommandPool(apdt.device, command_pool, 0);
+    err = vkResetCommandPool(d.vk.device, command_pool, 0);
     check_vk_result(err);
     VkCommandBufferBeginInfo begin_info = {};
     begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -551,10 +551,10 @@ extern "C" int ap_gui_init_imgui()
     end_info.pCommandBuffers = &command_buffer;
     err = vkEndCommandBuffer(command_buffer);
     check_vk_result(err);
-    err = vkQueueSubmit(apdt.queue, 1, &end_info, VK_NULL_HANDLE);
+    err = vkQueueSubmit(d.vk.queue, 1, &end_info, VK_NULL_HANDLE);
     check_vk_result(err);
 
-    err = vkDeviceWaitIdle(apdt.device);
+    err = vkDeviceWaitIdle(d.vk.device);
     check_vk_result(err);
     ImGui_ImplVulkan_DestroyFontUploadObjects();
   }
@@ -581,18 +581,18 @@ extern "C" void ap_gui_render_frame_imgui()
   // Resize swap chain?
   if (g_SwapChainRebuild)
   {
-    glfwGetFramebufferSize(apdt.window, &apdt.win_width, &apdt.win_height);
+    glfwGetFramebufferSize(d.window, &d.win_width, &d.win_height);
     ap_gui_window_resize();
-    if (apdt.win_width > 0 && apdt.win_height > 0)
+    if (d.win_width > 0 && d.win_height > 0)
     {
       ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
-      ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, apdt.physical_device, apdt.device, &g_MainWindowData, g_QueueFamily, g_Allocator, apdt.win_width, apdt.win_height, g_MinImageCount);
+      ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, d.vk.physical_device, d.vk.device, &g_MainWindowData, g_QueueFamily, g_Allocator, d.win_width, d.win_height, g_MinImageCount);
       g_MainWindowData.FrameIndex = 0;
       g_SwapChainRebuild = false;
       ImGuiStyle & style = ImGui::GetStyle();
-      style.WindowPadding = ImVec2(apdt.win_width*0.001, apdt.win_width*0.001);
-      style.FramePadding  = ImVec2(apdt.win_width*0.002, apdt.win_width*0.002);
-      style.ItemSpacing   = ImVec2(apdt.win_width*0.002, apdt.win_width*0.002);
+      style.WindowPadding = ImVec2(d.win_width*0.001, d.win_width*0.001);
+      style.FramePadding  = ImVec2(d.win_width*0.002, d.win_width*0.002);
+      style.ItemSpacing   = ImVec2(d.win_width*0.002, d.win_width*0.002);
     }
   }
 
@@ -603,8 +603,8 @@ extern "C" void ap_gui_render_frame_imgui()
 
   // right panel
   {
-    ImGui::SetNextWindowPos(ImVec2(apdt.win_width - apdt.panel_wd, 0), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(apdt.panel_wd, apdt.panel_ht), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(d.win_width - d.panel_wd, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(d.panel_wd, d.panel_ht), ImGuiCond_Always);
     ImGui::Begin("RightPanel", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
 
     if(ImGui::CollapsingHeader("Images"))
@@ -629,17 +629,17 @@ extern "C" void ap_gui_render_frame_imgui()
 
     if(ImGui::CollapsingHeader("Preferences"))
     {
-      const char* combo_preview_value = themes_name[apdt.theme];  // Pass in the preview value visible before opening the combo (it could be anything)
+      const char* combo_preview_value = themes_name[d.theme];  // Pass in the preview value visible before opening the combo (it could be anything)
       if (ImGui::BeginCombo("theme", combo_preview_value, 0))
       {
         for (int n = 0; themes_name[n]; n++)
         {
-          const bool is_selected = (apdt.theme == n);
+          const bool is_selected = (d.theme == n);
           if (ImGui::Selectable(themes_name[n], is_selected))
           {
-            apdt.theme = n;
+            d.theme = n;
             themes_set[n]();
-            dt_rc_set_int(&apdt.rc, "gui/theme", n);
+            dt_rc_set_int(&d.rc, "gui/theme", n);
           }
           // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
           if (is_selected)
@@ -650,42 +650,42 @@ extern "C" void ap_gui_render_frame_imgui()
 
       if(ImGui::Button("Vkdt folder"))
       {
-        const char* vk_dir = dt_rc_get(&apdt.rc, "vkdt_folder", "");
+        const char* vk_dir = dt_rc_get(&d.rc, "vkdt_folder", "");
         if(vk_dir[0])
           snprintf(vkdtbrowser.cwd, sizeof(vkdtbrowser.cwd), "%s", vk_dir);
         dt_filebrowser_open(&vkdtbrowser);
       }
       if(dt_filebrowser_display(&vkdtbrowser, 'd'))
       { // "ok" pressed
-        dt_rc_set(&apdt.rc, "vkdt_folder", vkdtbrowser.cwd);
+        dt_rc_set(&d.rc, "vkdt_folder", vkdtbrowser.cwd);
         dt_filebrowser_cleanup(&vkdtbrowser); // reset all but cwd
       }
       ImGui::SameLine();
-      ImGui::Text("%s", dt_rc_get(&apdt.rc, "vkdt_folder", ""));
+      ImGui::Text("%s", dt_rc_get(&d.rc, "vkdt_folder", ""));
     }
 
     if(ImGui::CollapsingHeader("Import darktable"))
     {
       if(ImGui::Button("Darktable folder"))
       {
-        const char* dt_dir = dt_rc_get(&apdt.rc, "darktable_folder", "");
+        const char* dt_dir = dt_rc_get(&d.rc, "darktable_folder", "");
         if(dt_dir[0])
           snprintf(darktablebrowser.cwd, sizeof(darktablebrowser.cwd), "%s", dt_dir);
         dt_filebrowser_open(&darktablebrowser);
       }
       if(dt_filebrowser_display(&darktablebrowser, 'd'))
       { // "ok" pressed
-        dt_rc_set(&apdt.rc, "darktable_folder", darktablebrowser.cwd);
+        dt_rc_set(&d.rc, "darktable_folder", darktablebrowser.cwd);
         dt_filebrowser_cleanup(&darktablebrowser); // reset all but cwd
       }
       ImGui::SameLine();
-      ImGui::Text("%s", dt_rc_get(&apdt.rc, "darktable_folder", ""));
+      ImGui::Text("%s", dt_rc_get(&d.rc, "darktable_folder", ""));
 
       if(ImGui::Button("Import"))
       {
         if(!threads_task_running(impdt_taskid))
         {
-          const char* dt_dir = dt_rc_get(&apdt.rc, "darktable_folder", "");
+          const char* dt_dir = dt_rc_get(&d.rc, "darktable_folder", "");
           if(dt_dir[0])
           {
             impdt_abort = 0;
@@ -706,10 +706,10 @@ extern "C" void ap_gui_render_frame_imgui()
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
     ImVec2 window_size = ImGui::GetWindowSize();
-    if(window_size.x != apdt.panel_wd)
+    if(window_size.x != d.panel_wd)
     {
-      apdt.panel_wd = window_size.x;
-      dt_rc_set_int(&apdt.rc, "gui/right_panel_width", apdt.panel_wd);
+      d.panel_wd = window_size.x;
+      dt_rc_set_int(&d.rc, "gui/right_panel_width", d.panel_wd);
       g_SwapChainRebuild = 1;
     }
     ImGui::End();  // end right panel
@@ -726,15 +726,15 @@ extern "C" void ap_gui_render_frame_imgui()
     window_flags |= ImGuiWindowFlags_NoMove;
     window_flags |= ImGuiWindowFlags_NoResize;
     window_flags |= ImGuiWindowFlags_NoBackground;
-    ImGui::SetNextWindowPos (ImVec2(apdt.center_x,  apdt.center_y),  ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(apdt.center_wd, apdt.center_ht), ImGuiCond_Always);
+    ImGui::SetNextWindowPos (ImVec2(d.center_x,  d.center_y),  ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(d.center_wd, d.center_ht), ImGuiCond_Always);
     ImGui::Begin("LighttableCenter", 0, window_flags);
 
     const int ipl = 6;
-    const int border = 0.004 * apdt.win_width;
-    const int width = apdt.center_wd / ipl - border*2 - style.ItemSpacing.x*2;
+    const int border = 0.004 * d.win_width;
+    const int width = d.center_wd / ipl - border*2 - style.ItemSpacing.x*2;
     const int height = width;
-    const int cnt = apdt.col.image_cnt;
+    const int cnt = d.img.cnt;
     const int lines = (cnt+ipl-1)/ipl;
 
     ImGuiListClipper clipper;
@@ -747,16 +747,16 @@ extern "C" void ap_gui_render_frame_imgui()
       if(first || clipper.ItemsHeight > 0.0f)
       {
         first = 0;
-        dt_thumbnails_load_list(&apdt.thumbnails, &apdt.col, clipper.DisplayStart * ipl, clipper.DisplayEnd * ipl);
+        dt_thumbnails_load_list(clipper.DisplayStart * ipl, clipper.DisplayEnd * ipl);
         for(int line=clipper.DisplayStart;line<clipper.DisplayEnd;line++)
         {
           int i = line * ipl;
           for(int k=0;k<ipl;k++)
           {
-            ap_image_t *images = apdt.col.images;
+            ap_image_t *images = d.img.images;
             uint32_t tid = images[i+k].thumbnail;
             if(tid == 0)
-              ap_request_vkdt_thumbnail(&apdt.thumbnails, &images[i+k]);
+              ap_request_vkdt_thumbnail(&images[i+k]);
             char img[256];
             snprintf(img, sizeof(img), "%s", images[i+k].filename);
 
@@ -771,14 +771,14 @@ extern "C" void ap_gui_render_frame_imgui()
   //            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8, 0.8, 0.8, 1.0));
   //          }
             float scale = MIN(
-                width/(float)apdt.thumbnails.thumb[tid].wd,
-                height/(float)apdt.thumbnails.thumb[tid].ht);
-            float w = apdt.thumbnails.thumb[tid].wd * scale;
-            float h = apdt.thumbnails.thumb[tid].ht * scale;
+                width/(float)d.thumbs.thumb[tid].wd,
+                height/(float)d.thumbs.thumb[tid].ht);
+            float w = d.thumbs.thumb[tid].wd * scale;
+            float h = d.thumbs.thumb[tid].ht * scale;
 
             uint32_t ret = ImGui::ThumbnailImage(
                 i+k,
-                apdt.thumbnails.thumb[tid].dset,
+                d.thumbs.thumb[tid].dset,
                 ImVec2(w, h),
                 ImVec2(0,0), ImVec2(1,1),
                 border,
@@ -828,7 +828,7 @@ extern "C" void ap_gui_render_frame_imgui()
                 {
                   char cmd[256];
                   snprintf(cmd, sizeof(cmd), "%svkdt %s/%s",
-                           dt_rc_get(&apdt.rc, "vkdt_folder", ""), images[i+k].path, images[i+k].filename);
+                           dt_rc_get(&d.rc, "vkdt_folder", ""), images[i+k].path, images[i+k].filename);
                   popen(cmd, "r");
                 }
                 else
@@ -873,8 +873,8 @@ extern "C" void ap_gui_cleanup_imgui()
 {
   // Cleanup
   impdt_abort = 1;
-  apdt.thumbnails.img_th_abort = 1;
-  VkResult err = vkDeviceWaitIdle(apdt.device);
+  d.thumbs.img_th_abort = 1;
+  VkResult err = vkDeviceWaitIdle(d.vk.device);
   check_vk_result(err);
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();

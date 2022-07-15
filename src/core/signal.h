@@ -38,7 +38,7 @@ dt_sigsegv_handler(int param)
 
   char pid_arg[100], com_arg[PATH_MAX+100], log_arg[PATH_MAX+100];
   snprintf(pid_arg, sizeof(pid_arg), "%d", (int)getpid());
-  snprintf(com_arg, sizeof(com_arg), "%s/gdb_commands", apdt.basedir);
+  snprintf(com_arg, sizeof(com_arg), "%s/gdb_commands", d.basedir);
   snprintf(log_arg, sizeof(log_arg), "set logging file %s", filename);
 
   int delete_file = 0;
