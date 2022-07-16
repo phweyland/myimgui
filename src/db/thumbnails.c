@@ -2,6 +2,7 @@
 #include "core/log.h"
 #include "core/dlist.h"
 #include "core/vk.h"
+#include "core/token.h"
 #include "db/thumbnails.h"
 #include "gui/gui.h"
 #include <sys/stat.h>
@@ -238,11 +239,11 @@ static int _thumbnails_get_size(const char *filename, uint32_t *wd, uint32_t *ht
     return 1;
   }
   // checks: magic != dt_token("bc1z") || version != 1
-//  if(header[0] != dt_token("bc1z") || header[1] != 1)
-//  {
-//    fprintf(stderr, "[i-bc1] %s: wrong magic number or version!\n", filename);
-//    gzclose(f);
-//  }
+  if(header[0] != dt_token("bc1z") || header[1] != 1)
+  {
+    fprintf(stderr, "[i-bc1] %s: wrong magic number or version!\n", filename);
+    gzclose(f);
+  }
   *wd = 4*(header[2]/4);
   *ht = 4*(header[3]/4);
   gzclose(f);
@@ -260,12 +261,12 @@ static int _thumbnails_read(const char *filename, void *mapped)
     return 1;
   }
   // checks: magic != dt_token("bc1z") || version != 1
-//  if(header[0] != dt_token("bc1z") || header[1] != 1)
-//  {
-//    fprintf(stderr, "[i-bc1] %s: wrong magic number or version!\n", filename);
-//    gzclose(f);
-//    return 1;
-//  }
+  if(header[0] != dt_token("bc1z") || header[1] != 1)
+  {
+    fprintf(stderr, "[i-bc1] %s: wrong magic number or version!\n", filename);
+    gzclose(f);
+    return 1;
+  }
   const uint32_t wd = 4*(header[2]/4);
   const uint32_t ht = 4*(header[3]/4);
   // fprintf(stderr, "[i-bc1] %s magic %"PRItkn" version %u dim %u x %u\n",
