@@ -204,8 +204,8 @@ void dt_thumbnails_load_list(uint32_t beg, uint32_t end)
   // for all images in given collection
   for(int k=beg;k<end;k++)
   {
-    if(k >= d.img.cnt) break; // safety first. this probably means this job is stale! big danger!
-    ap_image_t *img = &d.img.images[k];
+    if(k >= d.img.collection_cnt) break; // safety first. this probably means this job is stale! big danger!
+    ap_image_t *img = &d.img.images[d.img.collection[k]];
 
     if(img->thumbnail == 0)
     { // not loaded

@@ -609,6 +609,38 @@ extern "C" void ap_gui_render_frame_imgui()
 
     if(ImGui::CollapsingHeader("Images"))
     {
+      ImGui::Indent();
+      int32_t filter_prop = static_cast<int32_t>(d.img.collection_filter);
+      int32_t sort_prop   = static_cast<int32_t>(d.img.collection_sort);
+
+      if(ImGui::Combo("sort", &sort_prop, dt_db_property_text))
+      {
+        d.img.collection_sort = static_cast<dt_db_property_t>(sort_prop);
+        dt_db_update_collection();
+      }
+      if(ImGui::Combo("filter", &filter_prop, dt_db_property_text))
+      {
+        d.img.collection_filter = static_cast<dt_db_property_t>(filter_prop);
+        dt_db_update_collection();
+      }
+      if(filter_prop == s_prop_rating || filter_prop == s_prop_labels)
+      {
+        int filter_val = static_cast<int>(d.img.collection_filter_val);
+        if(ImGui::InputInt("filter value", &filter_val, 1, 100, 0))
+        {
+          d.img.collection_filter_val = static_cast<uint64_t>(filter_val);
+          dt_db_update_collection();
+        }
+      }
+      else if(filter_prop == s_prop_filename || filter_prop == s_prop_createdate)
+      {
+        if(ImGui::InputText("filter text", d.img.collection_filter_text, IM_ARRAYSIZE(d.img.collection_filter_text)))
+        {
+          dt_db_update_collection();
+        }
+      }
+      ImGui::Unindent();
+
       ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
       if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags))
       {
@@ -734,7 +766,7 @@ extern "C" void ap_gui_render_frame_imgui()
     const int border = 0.004 * d.win_width;
     const int width = d.center_wd / ipl - border*2 - style.ItemSpacing.x*2;
     const int height = width;
-    const int cnt = d.img.cnt;
+    const int cnt = d.img.collection_cnt;
     const int lines = (cnt+ipl-1)/ipl;
 
     ImGuiListClipper clipper;
@@ -751,14 +783,14 @@ extern "C" void ap_gui_render_frame_imgui()
         for(int line=clipper.DisplayStart;line<clipper.DisplayEnd;line++)
         {
           int i = line * ipl;
-          for(int k=0;k<ipl;k++)
+          for(int k = 0; k < ipl; k++)
           {
-            ap_image_t *images = d.img.images;
-            uint32_t tid = images[i+k].thumbnail;
+            ap_image_t *image = &d.img.images[d.img.collection[i+k]];
+            uint32_t tid = image->thumbnail;
             if(tid == 0)
-              ap_request_vkdt_thumbnail(&images[i+k]);
+              ap_request_vkdt_thumbnail(image);
             char img[256];
-            snprintf(img, sizeof(img), "%s", images[i+k].filename);
+            snprintf(img, sizeof(img), "%s", image->filename);
 
   //          if(vkdt.db.collection[i] == dt_db_current_imgid(&vkdt.db))
   //          {
@@ -771,21 +803,21 @@ extern "C" void ap_gui_render_frame_imgui()
   //            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8, 0.8, 0.8, 1.0));
   //          }
             float scale = MIN(
-                width/(float)d.thumbs.thumb[tid].wd,
-                height/(float)d.thumbs.thumb[tid].ht);
+                width / (float)d.thumbs.thumb[tid].wd,
+                height / (float)d.thumbs.thumb[tid].ht);
             float w = d.thumbs.thumb[tid].wd * scale;
             float h = d.thumbs.thumb[tid].ht * scale;
 
             uint32_t ret = ImGui::ThumbnailImage(
-                i+k,
+                d.img.collection[i+k],
                 d.thumbs.thumb[tid].dset,
                 ImVec2(w, h),
                 ImVec2(0,0), ImVec2(1,1),
                 border,
                 ImVec4(0.5f,0.5f,0.5f,1.0f),
                 ImVec4(1.0f,1.0f,1.0f,1.0f),
-                images[i+k].rating,  // rating
-                images[i+k].labels,  // labels
+                image->rating,  // rating
+                image->labels,  // labels
                 img,
                 0); // nav_focus
 
@@ -828,7 +860,7 @@ extern "C" void ap_gui_render_frame_imgui()
                 {
                   char cmd[256];
                   snprintf(cmd, sizeof(cmd), "%svkdt %s/%s",
-                           dt_rc_get(&d.rc, "vkdt_folder", ""), images[i+k].path, images[i+k].filename);
+                           dt_rc_get(&d.rc, "vkdt_folder", ""), image->path, image->filename);
                   popen(cmd, "r");
                 }
                 else
@@ -840,8 +872,8 @@ extern "C" void ap_gui_render_frame_imgui()
             }
 
 
-            if(i+k+1 >= cnt) break;
-            if(k < ipl-1) ImGui::SameLine();
+            if(i + k + 1 >= cnt) break;
+            if(k < ipl - 1) ImGui::SameLine();
           }
         }
       }

@@ -8,12 +8,47 @@
 typedef struct GLFWwindow GLFWwindow;
 typedef struct ap_db_t ap_db_t;
 
+typedef enum dt_db_property_t
+{
+  s_prop_none        = 0, // select all
+  s_prop_filename    = 1, // strstr
+  s_prop_rating      = 2, // >=
+  s_prop_labels      = 3, // &
+  s_prop_createdate  = 4,
+}
+dt_db_property_t;
+
+__attribute__((unused))
+static const char*
+dt_db_property_text =
+{
+  "none\0"
+  "filename\0"
+  "rating\0"
+  "label\0"
+  "create date\0"
+  "\0"
+};
+
 typedef struct ap_img_t
 {
   char node[512];
   int type;
   int cnt;
   ap_image_t *images;
+
+  // current sort and filter criteria for collection
+  dt_db_property_t collection_sort;
+  dt_db_property_t collection_filter;
+  int collection_filter_val;
+  char collection_filter_text[16];
+  // current query
+  uint32_t *collection;
+  uint32_t collection_cnt;
+
+  // selection
+  uint32_t *selection;
+  uint32_t selection_cnt;
 } ap_img_t;
 
 typedef struct ap_vk_t

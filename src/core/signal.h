@@ -30,7 +30,7 @@ static void
 dt_sigsegv_handler(int param)
 {
   char filename[PATH_MAX];
-  snprintf(filename, sizeof(filename), "/tmp/apdt-bt-%d.txt", (int)getpid());
+  snprintf(filename, sizeof(filename), "/tmp/%s-bt-%d.txt", ap_name, (int)getpid());
   FILE *f = fopen(filename, "wb");
   if(!f) return; // none of the code below works otherwise :(
   fprintf(f, "this is apdt reporting a crash:\n\n");
@@ -53,7 +53,8 @@ dt_sigsegv_handler(int param)
     }
     else
     {
-      if(execlp("gdb", "gdb", "apdt", pid_arg, "-batch", "-ex", log_arg, "-x", com_arg, NULL))
+      printf("%d - %s/gdb_commands - set logging file %s \n", (int)getpid(), d.basedir, filename);
+      if(execlp("gdb", "gdb", ap_name, pid_arg, "-batch", "-ex", log_arg, "-x", com_arg, NULL))
       {
         delete_file = 1;
         fprintf(stderr, "an error occurred while trying to execute gdb."

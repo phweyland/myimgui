@@ -80,13 +80,22 @@ void ap_gui_switch_collection(const char *node, const int type)
 {
   ap_reset_vkdt_thumbnail();
   if(d.img.images)
+  {
     free(d.img.images);
+    free(d.img.collection);
+    free(d.img.selection);
+  }
   snprintf(d.img.node, sizeof(d.img.node), "%s", node);
   d.img.type = type;
   clock_t beg = clock();
   d.img.cnt = ap_db_get_images(node, type, &d.img.images);
   clock_t end = clock();
   dt_log(s_log_perf, "[db] ran get images in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
+
+  d.img.collection = malloc(sizeof(uint32_t) * d.img.cnt);
+  d.img.selection = malloc(sizeof(uint32_t) * d.img.cnt);
+  dt_db_update_collection();
+
   dt_rc_set(&d.rc, type == 0 ? "gui/last_folder" : "gui/last_tag", d.img.node);
   dt_rc_set_int(&d.rc, "gui/last_collection_type", d.img.type);
 }

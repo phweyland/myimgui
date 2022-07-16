@@ -116,7 +116,7 @@ void impdt_work(uint32_t item, void *arg)
     sqlite3_bind_text(stmt2, 3, filename, -1, SQLITE_TRANSIENT);
     sqlite3_bind_int(stmt2, 4, hash);
     sqlite3_bind_int(stmt2, 5, labels);
-    uint16_t rating = sqlite3_column_int(stmt, 4) & 0xF;
+    int16_t rating = sqlite3_column_int(stmt, 4) & 0xF;
     if(rating & 0x8)
       rating = 0xFFFF;
     sqlite3_bind_int(stmt2, 6, rating);
