@@ -49,6 +49,8 @@ typedef struct ap_img_t
   // selection
   uint32_t *selection;
   uint32_t selection_cnt;
+  uint32_t current_imgid;
+  uint32_t current_colid;
 } ap_img_t;
 
 typedef struct ap_vk_t

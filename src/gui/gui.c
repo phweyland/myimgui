@@ -94,6 +94,7 @@ void ap_gui_switch_collection(const char *node, const int type)
 
   d.img.collection = malloc(sizeof(uint32_t) * d.img.cnt);
   d.img.selection = malloc(sizeof(uint32_t) * d.img.cnt);
+  d.img.current_imgid = d.img.current_colid = -1u;
   dt_db_update_collection();
 
   dt_rc_set(&d.rc, type == 0 ? "gui/last_folder" : "gui/last_tag", d.img.node);

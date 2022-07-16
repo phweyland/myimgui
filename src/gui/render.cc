@@ -782,26 +782,27 @@ extern "C" void ap_gui_render_frame_imgui()
         dt_thumbnails_load_list(clipper.DisplayStart * ipl, clipper.DisplayEnd * ipl);
         for(int line=clipper.DisplayStart;line<clipper.DisplayEnd;line++)
         {
-          int i = line * ipl;
-          for(int k = 0; k < ipl; k++)
+          uint32_t i = line * ipl;
+          for(uint32_t k = 0; k < ipl; k++)
           {
-            ap_image_t *image = &d.img.images[d.img.collection[i+k]];
+            const uint32_t j = i + k;
+            ap_image_t *image = &d.img.images[d.img.collection[j]];
             uint32_t tid = image->thumbnail;
             if(tid == 0)
               ap_request_vkdt_thumbnail(image);
             char img[256];
             snprintf(img, sizeof(img), "%s", image->filename);
 
-  //          if(vkdt.db.collection[i] == dt_db_current_imgid(&vkdt.db))
-  //          {
-  //            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0, 1.0, 1.0, 1.0));
-  //            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8, 0.8, 0.8, 1.0));
-  //          }
-  //          else if(vkdt.db.image[vkdt.db.collection[i]].labels & s_image_label_selected)
-  //          {
-  //            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6, 0.6, 0.6, 1.0));
-  //            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8, 0.8, 0.8, 1.0));
-  //          }
+            if(d.img.collection[j] == d.img.current_imgid)
+            {
+              ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(1.0, 1.0, 1.0, 1.0));
+              ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8, 0.8, 0.8, 1.0));
+            }
+            else if(d.img.images[d.img.collection[j]].selected)
+            {
+              ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6, 0.6, 0.6, 1.0));
+              ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.8, 0.8, 0.8, 1.0));
+            }
             float scale = MIN(
                 width / (float)d.thumbs.thumb[tid].wd,
                 height / (float)d.thumbs.thumb[tid].ht);
@@ -809,7 +810,7 @@ extern "C" void ap_gui_render_frame_imgui()
             float h = d.thumbs.thumb[tid].ht * scale;
 
             uint32_t ret = ImGui::ThumbnailImage(
-                d.img.collection[i+k],
+                d.img.collection[j],
                 d.thumbs.thumb[tid].dset,
                 ImVec2(w, h),
                 ImVec2(0,0), ImVec2(1,1),
@@ -821,42 +822,34 @@ extern "C" void ap_gui_render_frame_imgui()
                 img,
                 0); // nav_focus
 
-  //          ImGui::PopStyleColor(2);
-
-  //          if(vkdt.db.collection[i] == dt_db_current_imgid(&vkdt.db))
-  //            vkdt.wstate.set_nav_focus = MAX(0, vkdt.wstate.set_nav_focus-1);
-  //          if(vkdt.db.collection[i] == dt_db_current_imgid(&vkdt.db) ||
-  //            (vkdt.db.image[vkdt.db.collection[i]].labels & s_image_label_selected))
-  //            ImGui::PopStyleColor(2);
+            if(d.img.collection[j] == d.img.current_imgid ||
+              d.img.images[d.img.collection[j]].selected)
+              ImGui::PopStyleColor(2);
 
             if(ret)
             {
 //              vkdt.wstate.busy += 2;
               if(ImGui::GetIO().KeyCtrl)
               {
-//                if(vkdt.db.image[vkdt.db.collection[i]].labels & s_image_label_selected)
-//                  dt_db_selection_remove(&vkdt.db, i);
-//                else
-//                  dt_db_selection_add(&vkdt.db, i);
+                if(d.img.images[d.img.collection[j]].selected)
+                  dt_db_selection_remove(j);
+                else
+                  dt_db_selection_add(j);
               }
               else if(ImGui::GetIO().KeyShift)
               { // shift selects ranges
-//                uint32_t colid = dt_db_current_colid(&vkdt.db);
-//                if(colid != -1u)
-//                {
-//                  int a = MIN(colid, (uint32_t)i);
-//                  int b = MAX(colid, (uint32_t)i);
-//                  dt_db_selection_clear(&vkdt.db);
-//                  for(int i=a;i<=b;i++)
-//                    dt_db_selection_add(&vkdt.db, i);
-//                }
+                if(d.img.current_colid != -1u)
+                {
+                  int a = MIN(d.img.current_colid, j);
+                  int b = MAX(d.img.current_colid, j);
+                  dt_db_selection_clear();
+                  for(uint32_t i=a;i<=b;i++)
+                    dt_db_selection_add(i);
+                }
               }
               else
               { // no modifier, select exactly this image:
-//                if(dt_db_selection_contains(&vkdt.db, i) ||
-//                  (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)))
-//                if(ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
-                if(ImGui::IsMouseDoubleClicked(0))
+                if(ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
                 {
                   char cmd[256];
                   snprintf(cmd, sizeof(cmd), "%svkdt %s/%s",
@@ -865,14 +858,14 @@ extern "C" void ap_gui_render_frame_imgui()
                 }
                 else
                 {
-//                  dt_db_selection_clear(&vkdt.db);
-//                  dt_db_selection_add(&vkdt.db, i);
+                  dt_db_selection_clear();
+                  dt_db_selection_add(j);
                 }
               }
             }
 
 
-            if(i + k + 1 >= cnt) break;
+            if(j + 1 >= cnt) break;
             if(k < ipl - 1) ImGui::SameLine();
           }
         }

@@ -74,3 +74,46 @@ void dt_db_update_collection()
     break;
   }
 }
+
+void dt_db_selection_add(uint32_t colid)
+{
+  if(colid >= d.img.collection_cnt) return;
+  if(d.img.selection_cnt >= d.img.cnt) return;
+  const uint32_t imgid = d.img.collection[colid];
+  d.img.current_imgid = imgid;
+  d.img.current_colid = colid;
+  const uint32_t i = d.img.selection_cnt++;
+  d.img.selection[i] = imgid;
+  d.img.images[imgid].selected = 1;
+}
+
+void dt_db_selection_remove(uint32_t colid)
+{
+  if(d.img.current_colid == colid)
+    d.img.current_imgid = d.img.current_colid = -1u;
+  const uint32_t imgid = d.img.collection[colid];
+  for(uint32_t i = 0; i < d.img.selection_cnt; i++)
+  {
+    if(d.img.selection[i] == imgid)
+    {
+      d.img.selection[i] = d.img.selection[--d.img.selection_cnt];
+      d.img.images[imgid].selected = 0;
+      return;
+    }
+  }
+}
+
+void dt_db_selection_clear()
+{
+  for(int i=0;i<d.img.selection_cnt;i++)
+    d.img.images[d.img.selection[i]].selected = 0;
+  d.img.selection_cnt = 0;
+  d.img.current_imgid = d.img.current_colid = -1u;
+}
+
+const uint32_t *dt_db_selection_get()
+{
+  // TODO: sync sorting criterion with collection
+  qsort_r(d.img.selection, d.img.selection_cnt, sizeof(d.img.selection[0]), compare_filename, NULL);
+  return d.img.selection;
+}
