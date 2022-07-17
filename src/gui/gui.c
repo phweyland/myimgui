@@ -133,7 +133,8 @@ compare_labels(const void *a, const void *b, void *arg)
 static int
 compare_createdate(const void *a, const void *b, void *arg)
 {
-  return 0;
+  const uint32_t *ia = a, *ib = b;
+  return strcmp(d.img.images[ia[0]].datetime, d.img.images[ib[0]].datetime);
 }
 
 void dt_gui_update_collection()
@@ -156,6 +157,7 @@ void dt_gui_update_collection()
       if(!(d.img.images[k].labels & d.img.collection_filter_val)) continue;
       break;
     case s_prop_createdate:
+      if(!strstr(d.img.images[k].datetime, d.img.collection_filter_text)) continue;
       break;
     }
     d.img.collection[d.img.collection_cnt++] = k;
