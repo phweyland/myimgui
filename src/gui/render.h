@@ -11,6 +11,7 @@ int ap_gui_init_imgui();
 void ap_gui_render_frame_imgui();
 void ap_gui_cleanup_imgui();
 void ap_gui_cleanup_vulkan();
+void dt_gui_imgui_keyboard(GLFWwindow *w, int key, int scancade, int action, int mods);
 
 #ifdef __cplusplus
 }

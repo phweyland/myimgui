@@ -9,9 +9,6 @@
 #include <stdlib.h>
 #include <time.h>
 
-apdt_t d;
-char *ap_name = "apdt";
-
 void ap_gui_window_resize()
 {
   const int pwd = d.panel_width_frac * d.win_width;
@@ -99,4 +96,14 @@ void ap_gui_switch_collection(const char *node, const int type)
 
   dt_rc_set(&d.rc, type == 0 ? "gui/last_folder" : "gui/last_tag", d.img.node);
   dt_rc_set_int(&d.rc, "gui/last_collection_type", d.img.type);
+}
+
+void ap_gui_image_edit(const uint32_t imgid)
+{
+  if(imgid >= d.img.cnt)
+    return;
+  char cmd[256];
+  snprintf(cmd, sizeof(cmd), "%svkdt %s/%s",
+           dt_rc_get(&d.rc, "vkdt_folder", ""), d.img.images[imgid].path, d.img.images[imgid].filename);
+  popen(cmd, "r");
 }

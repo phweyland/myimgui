@@ -1,4 +1,3 @@
-#include "gui/themes.hh"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
@@ -20,6 +19,7 @@
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
 
+#include "gui/themes.hh"
 #include "gui/widget_filebrowser.hh"
 #include "gui/widget_navigation.hh"
 #include "gui/widget_thumbnail.hh"
@@ -52,7 +52,6 @@ static VkDescriptorPool         g_DescriptorPool = VK_NULL_HANDLE;
 
 static ImGui_ImplVulkanH_Window g_MainWindowData;
 static int                      g_MinImageCount = 2;
-static int                      g_SwapChainRebuild = 1;
 
 #ifdef IMGUI_VULKAN_DEBUG_REPORT
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_report(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType, uint64_t object, size_t location, int32_t messageCode, const char* pLayerPrefix, const char* pMessage, void* pUserData)
@@ -301,7 +300,7 @@ static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data)
   err = vkAcquireNextImageKHR(d.vk.device, wd->Swapchain, UINT64_MAX, image_acquired_semaphore, VK_NULL_HANDLE, &wd->FrameIndex);
   if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
   {
-    g_SwapChainRebuild = true;
+    d.swapchainrebuild = 1;
     return;
   }
   check_vk_result(err);
@@ -361,7 +360,7 @@ static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* draw_data)
 
 static void FramePresent(ImGui_ImplVulkanH_Window* wd)
 {
-  if (g_SwapChainRebuild)
+  if (d.swapchainrebuild)
     return;
   VkSemaphore render_complete_semaphore = wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
   VkPresentInfoKHR info = {};
@@ -374,7 +373,7 @@ static void FramePresent(ImGui_ImplVulkanH_Window* wd)
   VkResult err = vkQueuePresentKHR(d.vk.queue, &info);
   if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR)
   {
-    g_SwapChainRebuild = true;
+    d.swapchainrebuild = 1;
     return;
   }
   check_vk_result(err);
@@ -389,7 +388,6 @@ static void glfw_error_callback(int error, const char* description)
 // Our state
 bool show_demo_window;
 bool show_another_window;
-ImVec4 clear_color;
 char impdt_text[256];
 int impdt_taskid;
 int impdt_abort;
@@ -562,10 +560,10 @@ extern "C" int ap_gui_init_imgui()
 
   // Our state
   show_demo_window = true;
-  clear_color = ImVec4(0.5f, 0.5f, 0.50f, 1.00f);
   impdt_text[0] = 0;
   impdt_taskid = -1;
   impdt_abort = 0;
+  d.swapchainrebuild = 1;
   dt_filebrowser_init(&vkdtbrowser);
   dt_filebrowser_init(&darktablebrowser);
   ap_navigation_init(&folderbrowser, 0);
@@ -579,7 +577,7 @@ extern "C" void ap_gui_render_frame_imgui()
   ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
 
   // Resize swap chain?
-  if (g_SwapChainRebuild)
+  if (d.swapchainrebuild)
   {
     glfwGetFramebufferSize(d.window, &d.win_width, &d.win_height);
     ap_gui_window_resize();
@@ -588,7 +586,11 @@ extern "C" void ap_gui_render_frame_imgui()
       ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
       ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, d.vk.physical_device, d.vk.device, &g_MainWindowData, g_QueueFamily, g_Allocator, d.win_width, d.win_height, g_MinImageCount);
       g_MainWindowData.FrameIndex = 0;
-      g_SwapChainRebuild = false;
+      int new_width;
+      int new_height;
+      glfwGetFramebufferSize(d.window, &new_width, &new_height);
+      if(new_width == d.win_width && new_height == d.win_height) // F11 needs twice
+        d.swapchainrebuild = 0;
       ImGuiStyle & style = ImGui::GetStyle();
       style.WindowPadding = ImVec2(d.win_width*0.001, d.win_width*0.001);
       style.FramePadding  = ImVec2(d.win_width*0.002, d.win_width*0.002);
@@ -742,7 +744,7 @@ extern "C" void ap_gui_render_frame_imgui()
     {
       d.panel_wd = window_size.x;
       dt_rc_set_int(&d.rc, "gui/right_panel_width", d.panel_wd);
-      g_SwapChainRebuild = 1;
+      d.swapchainrebuild = 1;
     }
     ImGui::End();  // end right panel
   }
@@ -851,10 +853,7 @@ extern "C" void ap_gui_render_frame_imgui()
               { // no modifier, select exactly this image:
                 if(ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0))
                 {
-                  char cmd[256];
-                  snprintf(cmd, sizeof(cmd), "%svkdt %s/%s",
-                           dt_rc_get(&d.rc, "vkdt_folder", ""), image->path, image->filename);
-                  popen(cmd, "r");
+                  ap_gui_image_edit(d.img.collection[j]);
                 }
                 else
                 {
@@ -883,11 +882,6 @@ extern "C" void ap_gui_render_frame_imgui()
   const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
   if (!is_minimized)
   {
-//    wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
-//    wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
-//    wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
-//    wd->ClearValue.color.float32[3] = clear_color.w;
-//    wd->ClearValue.color.float32[3] = 1;
     FrameRender(wd, draw_data);
     FramePresent(wd);
   }
@@ -921,4 +915,9 @@ extern "C" void ap_gui_get_buffer(VkCommandPool *command_pool, VkCommandBuffer *
     *command_buffer = wd->Frames[wd->FrameIndex].CommandBuffer;
   if(fence)
     *fence = wd->Frames[wd->FrameIndex].Fence;
+}
+
+extern "C" void dt_gui_imgui_keyboard(GLFWwindow *window, int key, int scancode, int action, int mods)
+{
+  ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
 }

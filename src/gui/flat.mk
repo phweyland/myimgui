@@ -2,6 +2,7 @@ GUI_O=gui/gui.o\
       gui/render.o\
       main.o\
       gui/themes.o\
+			gui/view.o\
 			gui/widget_filebrowser.o\
 			gui/widget_navigation.o\
       ../ext/imgui/imgui.o\
@@ -16,7 +17,15 @@ GUI_H=gui/gui.h\
       gui/widget_filebrowser.hh\
 			gui/widget_navigation.hh\
 			gui/widget_thumbnail.hh\
-      core/fs.h
+			gui/lighttable.h\
+			gui/view.h\
+			db/thumbnails.h\
+			db/database.h\
+			db/rc.h\
+			core/threads.h\
+      core/fs.h\
+			core/vk.h\
+			core/log.h
 GUI_CFLAGS=$(MYAP_GLFW_CFLAGS) -I../ext/imgui -I../ext/imgui/backends/
 GUI_LDFLAGS=-ldl $(MYAP_GLFW_LDFLAGS) -lm -lstdc++
 

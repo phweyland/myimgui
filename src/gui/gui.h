@@ -8,6 +8,15 @@
 typedef struct GLFWwindow GLFWwindow;
 typedef struct ap_db_t ap_db_t;
 
+// view modes, lighttable, darkroom, ..
+typedef enum dt_gui_view_t
+{
+  s_view_lighttable = 0,
+  s_view_map = 2,
+  s_view_cnt,
+}
+dt_gui_view_t;
+
 typedef enum dt_db_property_t
 {
   s_prop_none        = 0, // select all
@@ -82,6 +91,10 @@ typedef struct apdt_t
   int center_wd, center_ht;
   int panel_wd;
   int panel_ht;
+  int fullscreen;
+  int swapchainrebuild;
+
+  int view_mode;
 
   ap_img_t img;           // current collection
   dt_thumbnails_t  thumbs;
@@ -99,3 +112,4 @@ void ap_gui_cleanup();
 void ap_gui_window_resize();
 void ap_gui_switch_collection(const char *node, const int type);
 void ap_gui_get_buffer(VkCommandPool *command_pool, VkCommandBuffer *command_buffer, VkFence *fence);
+void ap_gui_image_edit(const uint32_t imgid);
