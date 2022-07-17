@@ -702,45 +702,45 @@ extern "C" void ap_gui_render_frame_imgui()
       if(ImGui::InputInt("number of images per line", &ipl, 1, 20, 0))
       {
         d.ipl = ipl;
-        dt_rc_get_int(&d.rc, "gui/images_per_line", d.ipl);
+        dt_rc_set_int(&d.rc, "gui/images_per_line", d.ipl);
       }
-    }
 
-    if(ImGui::CollapsingHeader("Import darktable"))
-    {
-      if(ImGui::Button("Darktable folder"))
+      if(ImGui::CollapsingHeader("Import darktable"))
       {
-        const char* dt_dir = dt_rc_get(&d.rc, "darktable_folder", "");
-        if(dt_dir[0])
-          snprintf(darktablebrowser.cwd, sizeof(darktablebrowser.cwd), "%s", dt_dir);
-        dt_filebrowser_open(&darktablebrowser);
-      }
-      if(dt_filebrowser_display(&darktablebrowser, 'd'))
-      { // "ok" pressed
-        dt_rc_set(&d.rc, "darktable_folder", darktablebrowser.cwd);
-        dt_filebrowser_cleanup(&darktablebrowser); // reset all but cwd
-      }
-      ImGui::SameLine();
-      ImGui::Text("%s", dt_rc_get(&d.rc, "darktable_folder", ""));
-
-      if(ImGui::Button("Import"))
-      {
-        if(!threads_task_running(impdt_taskid))
+        if(ImGui::Button("Darktable folder"))
         {
           const char* dt_dir = dt_rc_get(&d.rc, "darktable_folder", "");
           if(dt_dir[0])
+            snprintf(darktablebrowser.cwd, sizeof(darktablebrowser.cwd), "%s", dt_dir);
+          dt_filebrowser_open(&darktablebrowser);
+        }
+        if(dt_filebrowser_display(&darktablebrowser, 'd'))
+        { // "ok" pressed
+          dt_rc_set(&d.rc, "darktable_folder", darktablebrowser.cwd);
+          dt_filebrowser_cleanup(&darktablebrowser); // reset all but cwd
+        }
+        ImGui::SameLine();
+        ImGui::Text("%s", dt_rc_get(&d.rc, "darktable_folder", ""));
+
+        if(ImGui::Button("Import"))
+        {
+          if(!threads_task_running(impdt_taskid))
           {
-            impdt_abort = 0;
-            impdt_text[0] = 0;
-            impdt_taskid = ap_import_darktable(dt_dir, impdt_text, &impdt_abort);
+            const char* dt_dir = dt_rc_get(&d.rc, "darktable_folder", "");
+            if(dt_dir[0])
+            {
+              impdt_abort = 0;
+              impdt_text[0] = 0;
+              impdt_taskid = ap_import_darktable(dt_dir, impdt_text, &impdt_abort);
+            }
           }
         }
+        ImGui::SameLine();
+        if(ImGui::Button("abort") && threads_task_running(impdt_taskid))
+          impdt_abort = 1;
+        ImGui::SameLine();
+        ImGui::Text("%s", impdt_text);
       }
-      ImGui::SameLine();
-      if(ImGui::Button("abort") && threads_task_running(impdt_taskid))
-        impdt_abort = 1;
-      ImGui::SameLine();
-      ImGui::Text("%s", impdt_text);
     }
 
 //      ImGui::ShowMetricsWindow();
@@ -880,7 +880,6 @@ extern "C" void ap_gui_render_frame_imgui()
                 }
               }
             }
-
 
             if(j + 1 >= cnt) break;
             if(k < d.ipl - 1) ImGui::SameLine();
