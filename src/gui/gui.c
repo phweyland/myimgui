@@ -91,6 +91,7 @@ void ap_gui_switch_collection(const char *node, const int type)
 
   d.img.collection = malloc(sizeof(uint32_t) * d.img.cnt);
   d.img.selection = malloc(sizeof(uint32_t) * d.img.cnt);
+  d.img.collection_cnt = d.img.selection_cnt = 0;
   d.img.current_imgid = d.img.current_colid = -1u;
   dt_gui_update_collection();
 

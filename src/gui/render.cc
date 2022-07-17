@@ -610,7 +610,7 @@ extern "C" void ap_gui_render_frame_imgui()
     ImGui::SetNextWindowSize(ImVec2(d.panel_wd, d.panel_ht), ImGuiCond_Always);
     ImGui::Begin("RightPanel", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
 
-    if(ImGui::CollapsingHeader("Images"))
+    if(ImGui::CollapsingHeader("Collection"))
     {
       ImGui::Indent();
       int32_t filter_prop = static_cast<int32_t>(d.img.collection_filter);
@@ -660,6 +660,39 @@ extern "C" void ap_gui_render_frame_imgui()
         ImGui::EndTabBar();
       }
       ImGui::Separator();
+    }
+
+    if(ImGui::CollapsingHeader("Images info"))
+    {
+      const float spacing = 5.0f;
+      ImGui::Text("Filename:");
+      ImGui::SameLine(0.0f, spacing);
+      ImGui::Text("%s", (d.img.selection_cnt != 1) ?  "-" : d.img.images[d.img.selection[0]].filename);
+
+      ImGui::Text("Date Time:");
+      ImGui::SameLine(0.0f, spacing);
+      ImGui::Text("%s", (d.img.selection_cnt != 1) ?  "-" : d.img.images[d.img.selection[0]].datetime);
+
+      ImGui::Text("Longitude:");
+      ImGui::SameLine(0.0f, spacing);
+      if(d.img.selection_cnt != 1 || isnan(d.img.images[d.img.selection[0]].longitude))
+        ImGui::Text("-");
+      else
+        ImGui::Text("%c %010.6f", (d.img.images[d.img.selection[0]].longitude < 0) ? 'W' : 'E', fabs(d.img.images[d.img.selection[0]].longitude));
+
+      ImGui::Text("Latitude:");
+      ImGui::SameLine(0.0f, spacing);
+      if(d.img.selection_cnt != 1 || isnan(d.img.images[d.img.selection[0]].latitude))
+        ImGui::Text("-");
+      else
+        ImGui::Text("%c %09.6f", (d.img.images[d.img.selection[0]].latitude < 0) ? 'S' : 'N', fabs(d.img.images[d.img.selection[0]].latitude));
+
+      ImGui::Text("Altitude:");
+      ImGui::SameLine(0.0f, spacing);
+      if(d.img.selection_cnt != 1 || isnan(d.img.images[d.img.selection[0]].altitude))
+        ImGui::Text("-");
+      else
+        ImGui::Text("%0.2f m", d.img.images[d.img.selection[0]].altitude);
     }
 
     if(ImGui::CollapsingHeader("Preferences"))
