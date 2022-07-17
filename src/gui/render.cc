@@ -697,6 +697,13 @@ extern "C" void ap_gui_render_frame_imgui()
       }
       ImGui::SameLine();
       ImGui::Text("%s", dt_rc_get(&d.rc, "vkdt_folder", ""));
+
+      int ipl = d.ipl;
+      if(ImGui::InputInt("number of images per line", &ipl, 1, 20, 0))
+      {
+        d.ipl = ipl;
+        dt_rc_get_int(&d.rc, "gui/images_per_line", d.ipl);
+      }
     }
 
     if(ImGui::CollapsingHeader("Import darktable"))
