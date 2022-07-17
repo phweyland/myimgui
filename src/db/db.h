@@ -19,6 +19,10 @@ typedef struct ap_image_t
   char path[512];
   uint32_t hash;      // murmur3(filename)
   uint32_t thumbnail;
+  char datetime[24];
+  float longitude;
+  float latitude;
+  float altitude;
   int16_t rating;    // -1u reject 0 1 2 3 4 5 stars
   uint16_t labels;    // each bit is one colour label flag
   uint16_t selected;

@@ -7,6 +7,8 @@
 #include "core/threads.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+
 //#include <glib.h>
 
 ap_db_t ap_db;
@@ -68,7 +70,9 @@ void impdt_work(uint32_t item, void *arg)
 
   sqlite3_exec(ap_db.handle, "INSERT INTO main.tags SELECT * FROM data.tags", NULL, NULL, NULL);
 
-  sqlite3_prepare_v2(ap_db.handle, "SELECT i.id, i.film_id, i.filename, f.folder, i.flags FROM library.images AS i "
+  sqlite3_prepare_v2(ap_db.handle, "SELECT i.id, i.film_id, i.filename, f.folder, i.flags, "
+                                   " i.datetime_taken, i.longitude, i.latitude, i.altitude "
+                                   "FROM library.images AS i "
                                    "JOIN library.film_rolls AS f ON f.id = i.film_id", -1, &stmt, NULL);
   int count = 0;
   int faulty = 0;
@@ -109,8 +113,8 @@ void impdt_work(uint32_t item, void *arg)
     char fullname[2048];
     snprintf(fullname, sizeof(fullname), "%s/%s.cfg", sqlite3_column_text(stmt, 3), filename);
     const uint32_t hash = murmur_hash3(fullname, strnlen(fullname, sizeof(fullname)), 1337);
-    sqlite3_prepare_v2(ap_db.handle, "INSERT INTO main.images (id, folderid, filename, hash, labels, rating) "
-                                     "VALUES (?1, ?2, ?3, ?4, ?5, ?6)", -1, &stmt2, NULL);
+    sqlite3_prepare_v2(ap_db.handle, "INSERT INTO main.images (id, folderid, filename, hash, labels, rating, datetime, longitude, latitude, altitude) "
+                                     "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)", -1, &stmt2, NULL);
     sqlite3_bind_int(stmt2, 1, imgid);
     sqlite3_bind_int(stmt2, 2, sqlite3_column_int(stmt, 1));
     sqlite3_bind_text(stmt2, 3, filename, -1, SQLITE_TRANSIENT);
@@ -120,6 +124,14 @@ void impdt_work(uint32_t item, void *arg)
     if(rating & 0x8)
       rating = 0xFFFF;
     sqlite3_bind_int(stmt2, 6, rating);
+    if(sqlite3_column_type(stmt, 5) != SQLITE_NULL)
+      sqlite3_bind_double(stmt2, 7, (double)sqlite3_column_int64(stmt, 5) / 86400000000.0 + 1721425.5);
+    if(sqlite3_column_type(stmt, 6) != SQLITE_NULL)
+      sqlite3_bind_double(stmt2, 8, sqlite3_column_double(stmt, 6));
+    if(sqlite3_column_type(stmt, 7) != SQLITE_NULL)
+      sqlite3_bind_double(stmt2, 9, sqlite3_column_double(stmt, 7));
+    if(sqlite3_column_type(stmt, 8) != SQLITE_NULL)
+      sqlite3_bind_double(stmt2, 10, sqlite3_column_double(stmt, 8));
     if(sqlite3_step(stmt2) != SQLITE_DONE)
       faulty++;
     sqlite3_finalize(stmt2);
@@ -169,10 +181,11 @@ static void _create_schema(ap_db_t *db)
   sqlite3_exec(db->handle, "CREATE UNIQUE INDEX main.tags_name_idx ON tags (name)", NULL, NULL, NULL);
   sqlite3_exec(db->handle, "CREATE TABLE main.images (id INTEGER PRIMARY KEY AUTOINCREMENT, "
                            "folderid INTEGER, filename VARCHAR, hash INTEGER,"
-                           "labels INTEGER, rating INTEGER, "
+                           "labels INTEGER, rating INTEGER, datetime REAL, longitude REAL, latitude REAL, altitude REAL, "
                            "FOREIGN KEY(folderid) REFERENCES folders(id) ON DELETE CASCADE ON UPDATE CASCADE)", NULL, NULL, NULL);
   sqlite3_exec(db->handle, "CREATE INDEX main.images_folderid_index ON images (folderid, filename)", NULL, NULL, NULL);
   sqlite3_exec(db->handle, "CREATE UNIQUE INDEX main.images_hash_index ON images (hash)", NULL, NULL, NULL);
+  sqlite3_exec(db->handle, "CREATE INDEX main.images_datetime_index ON images (datetime)", NULL, NULL, NULL);
 
   sqlite3_exec(db->handle, "CREATE TABLE main.tagged_images (imgid INTEGER, tagid INTEGER, position INTEGER, "
                            "PRIMARY KEY (imgid, tagid),"
@@ -315,7 +328,8 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
   if(type == 0)
   {
     sqlite3_prepare_v2(ap_db.handle,
-                       "SELECT i.id, i.filename, r.root || f.folder as path, i.hash, i.labels, i.rating "
+                       "SELECT i.id, i.filename, r.root || f.folder as path, i.hash, i.labels, i.rating, "
+                       " strftime('%Y-%m-%d %H:%M:%f', datetime) AS datetime, longitude, latitude, altitude "
                        "FROM main.images AS i "
                        "JOIN main.folders AS f ON f.id = i.folderid "
                        "JOIN main.roots AS r ON r.id = f.rootid "
@@ -325,7 +339,8 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
   else // if(type == 1)
   {
     sqlite3_prepare_v2(ap_db.handle,
-                       "SELECT i.id, i.filename, r.root || f.folder as path, i.hash, i.labels, i.rating "
+                       "SELECT i.id, i.filename, r.root || f.folder as path, i.hash, i.labels, i.rating, "
+                       " strftime('%Y-%m-%d %H:%M:%f', datetime) AS datetime, longitude, latitude, altitude "
                        "FROM main.images AS i "
                        "JOIN main.tagged_images AS ti ON ti.imgid = i.id "
                        "JOIN main.tags AS t ON t.id = ti.tagid "
@@ -357,6 +372,10 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
     image->hash = sqlite3_column_int(stmt, 3);
     image->labels = sqlite3_column_int(stmt, 4);
     image->rating = sqlite3_column_int(stmt, 5);
+    snprintf(image->datetime, sizeof(image->datetime), "%s", sqlite3_column_text(stmt, 6));
+    image->longitude = sqlite3_column_type(stmt, 7) == SQLITE_NULL ? NAN : sqlite3_column_double(stmt, 7);
+    image->latitude = sqlite3_column_type(stmt, 8) == SQLITE_NULL ? NAN : sqlite3_column_double(stmt, 8);
+    image->altitude = sqlite3_column_type(stmt, 9) == SQLITE_NULL ? NAN : sqlite3_column_double(stmt, 9);
     image++;
   }
   sqlite3_finalize(stmt);
