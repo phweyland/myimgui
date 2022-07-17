@@ -113,3 +113,13 @@ void ap_gui_window_resize();
 void ap_gui_switch_collection(const char *node, const int type);
 void ap_gui_get_buffer(VkCommandPool *command_pool, VkCommandBuffer *command_buffer, VkFence *fence);
 void ap_gui_image_edit(const uint32_t imgid);
+
+// after changing filter and sort criteria, update the collection array
+void dt_gui_update_collection();
+// add image to the list of selected images, O(1).
+void dt_gui_selection_add(uint32_t colid);
+// remove image from the list of selected images, O(N).
+void dt_gui_selection_remove(uint32_t colid);
+void dt_gui_selection_clear();
+// return sorted list of selected images
+const uint32_t *dt_gui_selection_get();

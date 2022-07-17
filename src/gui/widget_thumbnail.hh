@@ -97,7 +97,7 @@ uint32_t ThumbnailImage(
   uint32_t starcol = 0xff000000u;
   if(rating <= 5)
     for(int i=0;i<rating;i++)
-      draw_star(bb.Min[0] + 0.1*wd*(i+1), bb.Min[1] + 0.1*wd, 0.015*wd, starcol);
+      draw_star(bb.Min[0] + 0.1*wd*(i+1), bb.Min[1] + 0.1*wd, 0.012*wd, starcol);
 
   uint32_t label_col[] = {
     0xff3333ccu, // red

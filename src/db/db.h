@@ -38,12 +38,5 @@ typedef struct dt_stringpool_t
 }
 dt_stringpool_t;
 
-// after changing filter and sort criteria, update the collection array
-void dt_db_update_collection();
-// add image to the list of selected images, O(1).
-void dt_db_selection_add(uint32_t colid);
-// remove image from the list of selected images, O(N).
-void dt_db_selection_remove(uint32_t colid);
-void dt_db_selection_clear();
-// return sorted list of selected images
-const uint32_t *dt_db_selection_get();
+void ap_db_set_images_rating(const uint32_t *sel, const uint32_t cnt, const int16_t rating);
+void ap_db_toggle_images_labels(const uint32_t *sel, const uint32_t cnt, const uint16_t labels);

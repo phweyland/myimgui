@@ -16,9 +16,7 @@ lighttable_keyboard(GLFWwindow *w, int key, int scancode, int action, int mods)
 #define RATE(X)\
     else if(key == GLFW_KEY_ ## X )\
     {\
-      const uint32_t *sel = dt_db_selection_get();\
-      for(int i=0;i<d.img.selection_cnt;i++)\
-        d.img.images[sel[i]].rating = X;\
+      ap_db_set_images_rating(d.img.selection, d.img.selection_cnt, X);\
     }
     RATE(1)
     RATE(2)
@@ -30,9 +28,7 @@ lighttable_keyboard(GLFWwindow *w, int key, int scancode, int action, int mods)
 #define LABEL(X)\
     else if(key == GLFW_KEY_F ## X)\
     {\
-      const uint32_t *sel = dt_db_selection_get();\
-      for(int i=0;i<d.img.selection_cnt;i++)\
-        d.img.images[sel[i]].labels ^= 1<<(X-1);\
+      ap_db_toggle_images_labels(d.img.selection, d.img.selection_cnt, 1<<(X-1));\
     }
     LABEL(1)
     LABEL(2)

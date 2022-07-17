@@ -618,12 +618,12 @@ extern "C" void ap_gui_render_frame_imgui()
       if(ImGui::Combo("sort", &sort_prop, dt_db_property_text))
       {
         d.img.collection_sort = static_cast<dt_db_property_t>(sort_prop);
-        dt_db_update_collection();
+        dt_gui_update_collection();
       }
       if(ImGui::Combo("filter", &filter_prop, dt_db_property_text))
       {
         d.img.collection_filter = static_cast<dt_db_property_t>(filter_prop);
-        dt_db_update_collection();
+        dt_gui_update_collection();
       }
       if(filter_prop == s_prop_rating || filter_prop == s_prop_labels)
       {
@@ -631,14 +631,14 @@ extern "C" void ap_gui_render_frame_imgui()
         if(ImGui::InputInt("filter value", &filter_val, 1, 100, 0))
         {
           d.img.collection_filter_val = static_cast<uint64_t>(filter_val);
-          dt_db_update_collection();
+          dt_gui_update_collection();
         }
       }
       else if(filter_prop == s_prop_filename || filter_prop == s_prop_createdate)
       {
         if(ImGui::InputText("filter text", d.img.collection_filter_text, IM_ARRAYSIZE(d.img.collection_filter_text)))
         {
-          dt_db_update_collection();
+          dt_gui_update_collection();
         }
       }
       ImGui::Unindent();
@@ -834,9 +834,9 @@ extern "C" void ap_gui_render_frame_imgui()
               if(ImGui::GetIO().KeyCtrl)
               {
                 if(d.img.images[d.img.collection[j]].selected)
-                  dt_db_selection_remove(j);
+                  dt_gui_selection_remove(j);
                 else
-                  dt_db_selection_add(j);
+                  dt_gui_selection_add(j);
               }
               else if(ImGui::GetIO().KeyShift)
               { // shift selects ranges
@@ -844,9 +844,9 @@ extern "C" void ap_gui_render_frame_imgui()
                 {
                   int a = MIN(d.img.current_colid, j);
                   int b = MAX(d.img.current_colid, j);
-                  dt_db_selection_clear();
+                  dt_gui_selection_clear();
                   for(uint32_t i=a;i<=b;i++)
-                    dt_db_selection_add(i);
+                    dt_gui_selection_add(i);
                 }
               }
               else
@@ -857,8 +857,8 @@ extern "C" void ap_gui_render_frame_imgui()
                 }
                 else
                 {
-                  dt_db_selection_clear();
-                  dt_db_selection_add(j);
+                  dt_gui_selection_clear();
+                  dt_gui_selection_add(j);
                 }
               }
             }

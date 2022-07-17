@@ -309,6 +309,7 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
 {
   if(!images)
     return 0;
+  clock_t beg = clock();
   *images = 0;
   sqlite3_stmt *stmt;
   if(type == 0)
@@ -359,5 +360,63 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images)
     image++;
   }
   sqlite3_finalize(stmt);
+  clock_t end = clock();
+  dt_log(s_log_perf, "[db] ran get images in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
   return count;
+}
+
+void ap_db_write_rating(const uint32_t *sel, const uint32_t cnt, const int16_t rating)
+{
+  clock_t beg = clock();
+  uint32_t i = 0;
+  char query[200];
+  int j = snprintf(query, sizeof(query), "UPDATE main.images SET rating = %d WHERE id IN (", rating);
+  while(i < cnt)
+  {
+    int k = 0;
+    while(i < cnt)
+    {
+      int l = snprintf(&query[j+k], sizeof(query)-j-k, "%d,", d.img.images[sel[i]].imgid);
+      if(l > sizeof(query)-j-k)
+        break;
+      i++;
+      k += l;
+    }
+    query[j+k-1] = ')'; // replace ',' and close the query
+    query[j+k] = '\0';
+    sqlite3_stmt *stmt;
+    sqlite3_prepare_v2(ap_db.handle, query, -1, &stmt, NULL);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+  }
+  clock_t end = clock();
+  dt_log(s_log_perf, "[db] ran write images rating in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
+}
+
+void ap_db_toggle_labels(const uint32_t *sel, const uint32_t cnt,const uint16_t labels)
+{
+  clock_t beg = clock();
+  uint32_t i = 0;
+  char query[200];
+  int j = snprintf(query, sizeof(query), "UPDATE main.images SET labels = (~(labels&%d))&(labels|%d) WHERE id IN (", labels, labels);
+  while(i < cnt)
+  {
+    int k = 0;
+    while(i < cnt)
+    {
+      int l = snprintf(&query[j+k], sizeof(query)-j-k, "%d,", d.img.images[sel[i]].imgid);
+      if(l > sizeof(query)-j-k)
+        break;
+      i++;
+      k += l;
+    }
+    query[j+k-1] = ')'; // replace ',' and close the query
+    query[j+k] = '\0';
+    sqlite3_stmt *stmt;
+    sqlite3_prepare_v2(ap_db.handle, query, -1, &stmt, NULL);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+  }
+  clock_t end = clock();
+  dt_log(s_log_perf, "[db] ran write images rating in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
 }
