@@ -12,10 +12,20 @@ typedef struct ap_db_t ap_db_t;
 typedef enum dt_gui_view_t
 {
   s_view_lighttable = 0,
-  s_view_map = 2,
+  s_view_map = 1,
   s_view_cnt,
 }
 dt_gui_view_t;
+
+typedef enum ap_scroll_t
+{
+  s_scroll_none = 0,
+  s_scroll_top = 1,
+  s_scroll_bottom = 2,
+  s_scroll_current = 3,
+  s_scroll_cnt,
+}
+ap_scroll_t;
 
 typedef enum dt_db_property_t
 {
@@ -93,6 +103,8 @@ typedef struct apdt_t
   int panel_ht;
   int fullscreen;
   int swapchainrebuild;
+  int ipl;
+  int scrollpos;
 
   int view_mode;
 
@@ -120,6 +132,7 @@ void dt_gui_update_collection();
 void dt_gui_selection_add(uint32_t colid);
 // remove image from the list of selected images, O(N).
 void dt_gui_selection_remove(uint32_t colid);
+void ap_gui_selection_all();
 void dt_gui_selection_clear();
 // return sorted list of selected images
 const uint32_t *dt_gui_selection_get();

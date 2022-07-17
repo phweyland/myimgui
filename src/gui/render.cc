@@ -564,6 +564,7 @@ extern "C" int ap_gui_init_imgui()
   impdt_taskid = -1;
   impdt_abort = 0;
   d.swapchainrebuild = 1;
+  d.ipl = dt_rc_get_int(&d.rc, "gui/images_per_line", 6);
   dt_filebrowser_init(&vkdtbrowser);
   dt_filebrowser_init(&darktablebrowser);
   ap_navigation_init(&folderbrowser, 0);
@@ -764,12 +765,22 @@ extern "C" void ap_gui_render_frame_imgui()
     ImGui::SetNextWindowSize(ImVec2(d.center_wd, d.center_ht), ImGuiCond_Always);
     ImGui::Begin("LighttableCenter", 0, window_flags);
 
-    const int ipl = 6;
     const int border = 0.004 * d.win_width;
-    const int width = d.center_wd / ipl - border*2 - style.ItemSpacing.x*2;
+    const int width = d.center_wd / d.ipl - border*2 - style.ItemSpacing.x*2;
     const int height = width;
     const int cnt = d.img.collection_cnt;
-    const int lines = (cnt+ipl-1)/ipl;
+    const int lines = (cnt+d.ipl-1)/d.ipl;
+
+    if(d.scrollpos == s_scroll_top)
+      ImGui::SetScrollY(0.0f);
+    else if (d.scrollpos == s_scroll_current)
+    {
+      if(d.img.current_colid != -1u)
+        ImGui::SetScrollY((float)d.img.current_colid/(float)d.img.collection_cnt * ImGui::GetScrollMaxY());
+    }
+    else if (d.scrollpos == s_scroll_bottom)
+      ImGui::SetScrollY(ImGui::GetScrollMaxY());
+    d.scrollpos = 0;
 
     ImGuiListClipper clipper;
     clipper.Begin(lines);
@@ -781,11 +792,11 @@ extern "C" void ap_gui_render_frame_imgui()
       if(first || clipper.ItemsHeight > 0.0f)
       {
         first = 0;
-        dt_thumbnails_load_list(clipper.DisplayStart * ipl, clipper.DisplayEnd * ipl);
+        dt_thumbnails_load_list(clipper.DisplayStart * d.ipl, clipper.DisplayEnd * d.ipl);
         for(int line=clipper.DisplayStart;line<clipper.DisplayEnd;line++)
         {
-          uint32_t i = line * ipl;
-          for(uint32_t k = 0; k < ipl; k++)
+          uint32_t i = line * d.ipl;
+          for(uint32_t k = 0; k < d.ipl; k++)
           {
             const uint32_t j = i + k;
             ap_image_t *image = &d.img.images[d.img.collection[j]];
@@ -865,7 +876,7 @@ extern "C" void ap_gui_render_frame_imgui()
 
 
             if(j + 1 >= cnt) break;
-            if(k < ipl - 1) ImGui::SameLine();
+            if(k < d.ipl - 1) ImGui::SameLine();
           }
         }
       }

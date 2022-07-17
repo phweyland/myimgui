@@ -1,18 +1,30 @@
 #pragma once
 #include "gui/render.h"
+#include "gui/gui.h"
 
 static inline void
 lighttable_keyboard(GLFWwindow *w, int key, int scancode, int action, int mods)
 {
   if(action == GLFW_PRESS)
   {
-    if(key == GLFW_KEY_E)
+    if(key == GLFW_KEY_E && mods & GLFW_MOD_CONTROL)
     {
       if(d.img.current_imgid != -1u)
       {
         ap_gui_image_edit(d.img.current_imgid);
       }
     }
+    else if(key == GLFW_KEY_A && mods & GLFW_MOD_CONTROL)
+      ap_gui_selection_all();
+    else if(key == GLFW_KEY_D && mods & GLFW_MOD_CONTROL)
+      dt_gui_selection_clear();
+    else if(key == GLFW_KEY_HOME)
+      d.scrollpos = s_scroll_top;
+    else if(key == GLFW_KEY_END)
+      d.scrollpos = s_scroll_bottom;
+    else if(key == GLFW_KEY_SPACE)
+      d.scrollpos = s_scroll_current;
+
 #define RATE(X)\
     else if(key == GLFW_KEY_ ## X )\
     {\

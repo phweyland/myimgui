@@ -184,8 +184,10 @@ void dt_gui_selection_add(uint32_t colid)
   if(colid >= d.img.collection_cnt) return;
   if(d.img.selection_cnt >= d.img.cnt) return;
   const uint32_t imgid = d.img.collection[colid];
-  d.img.current_imgid = imgid;
-  d.img.current_colid = colid;
+  if(d.img.current_imgid == -1)
+    d.img.current_imgid = imgid;
+  if(d.img.current_colid == -1)
+    d.img.current_colid = colid;
   const uint32_t i = d.img.selection_cnt++;
   d.img.selection[i] = imgid;
   d.img.images[imgid].selected = 1;
@@ -213,6 +215,23 @@ void dt_gui_selection_clear()
     d.img.images[d.img.selection[i]].selected = 0;
   d.img.selection_cnt = 0;
   d.img.current_imgid = d.img.current_colid = -1u;
+}
+
+void ap_gui_selection_all()
+{
+  d.img.selection_cnt = 0;
+  uint32_t imgid = d.img.collection[0];
+  if(d.img.current_imgid == -1)
+    d.img.current_imgid = imgid;
+  if(d.img.current_colid == -1)
+    d.img.current_colid = 0;
+  for(int i=0;i<d.img.collection_cnt;i++)
+  {
+    imgid = d.img.collection[i];
+    const uint32_t i = d.img.selection_cnt++;
+    d.img.selection[i] = imgid;
+    d.img.images[imgid].selected = 1;
+  }
 }
 
 const uint32_t *dt_gui_selection_get()
