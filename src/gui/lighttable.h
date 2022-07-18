@@ -2,8 +2,7 @@
 #include "gui/render.h"
 #include "gui/gui.h"
 
-static inline void
-lighttable_keyboard(GLFWwindow *w, int key, int scancode, int action, int mods)
+static inline void lighttable_keyboard(GLFWwindow *w, int key, int scancode, int action, int mods)
 {
   if(action == GLFW_PRESS)
   {
@@ -24,6 +23,8 @@ lighttable_keyboard(GLFWwindow *w, int key, int scancode, int action, int mods)
       d.scrollpos = s_scroll_bottom;
     else if(key == GLFW_KEY_SPACE)
       d.scrollpos = s_scroll_current;
+    else if(key == GLFW_KEY_M)
+      dt_view_switch(s_view_map);
 
 #define RATE(X)\
     else if(key == GLFW_KEY_ ## X )\

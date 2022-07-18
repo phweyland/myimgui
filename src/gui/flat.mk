@@ -1,5 +1,7 @@
 GUI_O=gui/gui.o\
       gui/render.o\
+			gui/render_lighttable.o\
+			gui/render_map.o\
       main.o\
       gui/themes.o\
 			gui/view.o\
