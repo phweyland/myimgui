@@ -629,9 +629,10 @@ extern "C" void ap_gui_render_frame_imgui()
       if(filter_prop == s_prop_rating || filter_prop == s_prop_labels)
       {
         int filter_val = static_cast<int>(d.img.collection_filter_val);
-        if(ImGui::InputInt("filter value", &filter_val, 1, 100, 0))
+        if(ImGui::InputInt("filter value", &filter_val, 1, 1, 0))
         {
-          d.img.collection_filter_val = static_cast<uint64_t>(filter_val);
+          if(filter_val >= 0 && filter_val <= 0xFF)
+            d.img.collection_filter_val = static_cast<uint64_t>(filter_val);
           dt_gui_update_collection();
         }
       }
@@ -732,9 +733,10 @@ extern "C" void ap_gui_render_frame_imgui()
       ImGui::Text("%s", dt_rc_get(&d.rc, "vkdt_folder", ""));
 
       int ipl = d.ipl;
-      if(ImGui::InputInt("number of images per line", &ipl, 1, 20, 0))
+      if(ImGui::InputInt("number of images per line", &ipl, 1, 3, 0))
       {
-        d.ipl = ipl;
+        if(ipl >= 1 && <= 20)
+          d.ipl = ipl;
         dt_rc_set_int(&d.rc, "gui/images_per_line", d.ipl);
       }
 
