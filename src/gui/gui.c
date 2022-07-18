@@ -152,7 +152,24 @@ void dt_gui_update_collection()
       if(!strstr(d.img.images[k].filename, d.img.collection_filter_text)) continue;
       break;
     case s_prop_rating:
-      if(!(d.img.images[k].rating >= (int16_t)d.img.collection_filter_val)) continue;
+      switch(d.img.collection_comp)
+      {
+      case s_comp_inf:
+        if(!(d.img.images[k].rating < (int16_t)d.img.collection_filter_val)) continue;
+        break;
+      case s_comp_infe:
+        if(!(d.img.images[k].rating <= (int16_t)d.img.collection_filter_val)) continue;
+        break;
+      case s_comp_equal:
+        if(!(d.img.images[k].rating == (int16_t)d.img.collection_filter_val)) continue;
+        break;
+      case s_comp_supe:
+        if(!(d.img.images[k].rating >= (int16_t)d.img.collection_filter_val)) continue;
+        break;
+      case s_comp_sup:
+        if(!(d.img.images[k].rating > (int16_t)d.img.collection_filter_val)) continue;
+        break;
+      }
       break;
     case s_prop_labels:
       if(!(d.img.images[k].labels & d.img.collection_filter_val)) continue;

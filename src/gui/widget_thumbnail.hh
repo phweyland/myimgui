@@ -15,15 +15,7 @@ void draw_star(float u, float v, float size, uint32_t col)
     -0.587785, -0.809017,
     -0.951057,  0.309017};
   float x[20];
-#if 0
-  for(int i=0;i<5;i++)
-  { // outline
-    x[4*i+0] = u +     size * c[((2*i  )%10)+0];
-    x[4*i+1] = v +     size * c[((2*i  )%10)+1];
-    x[4*i+2] = u - 0.5*size * c[((2*i+6)%10)+0];
-    x[4*i+3] = v - 0.5*size * c[((2*i+6)%10)+1];
-  }
-#endif
+
   for(int i=0;i<5;i++)
   { // classic pentagram
     x[2*i+0] = u + size * c[((4*i  )%10)+0];
@@ -46,7 +38,7 @@ uint32_t ThumbnailImage(
     int frame_padding,
     const ImVec4& bg_col,
     const ImVec4& tint_col,
-    uint16_t rating,
+    int16_t rating,
     uint16_t labels,
     const char *text,
     int set_nav_focus)
@@ -91,7 +83,7 @@ uint32_t ThumbnailImage(
   RenderFrame(bb.Min, bb.Max, col, true, ImClamp(padding, 0.0f, style.FrameRounding));
   if (bg_col.w > 0.0f)
     window->DrawList->AddRectFilled(image_bb.Min, image_bb.Max, GetColorU32(bg_col));
-  window->DrawList->AddImage(user_texture_id, image_bb.Min, image_bb.Max, uv0, uv1, GetColorU32(tint_col));
+  window->DrawList->AddImage(user_texture_id, image_bb.Min, image_bb.Max, uv0, uv1, GetColorU32((rating < 0) ? ImVec4(0.2f,0.1f,0.1f,0.7f) : tint_col));
 
   // render decorations (colour labels/stars/etc?)
   uint32_t starcol = 0xff000000u;

@@ -36,6 +36,10 @@ lighttable_keyboard(GLFWwindow *w, int key, int scancode, int action, int mods)
     RATE(4)
     RATE(5)
     RATE(0)
+    else if(key == GLFW_KEY_X)
+    {
+      ap_db_set_images_rating(d.img.selection, d.img.selection_cnt, -1);
+    }
 #undef RATE
 #define LABEL(X)\
     else if(key == GLFW_KEY_F ## X)\

@@ -49,6 +49,28 @@ dt_db_property_text =
   "\0"
 };
 
+typedef enum ap_db_comp_t
+{
+  s_comp_inf    = 0,
+  s_comp_infe   = 1,
+  s_comp_equal  = 2,
+  s_comp_supe   = 3,
+  s_comp_sup    = 4,
+}
+ap_db_comp_t;
+
+__attribute__((unused))
+static const char*
+ap_db_comp_text =
+{
+  "<\0"
+  "<=\0"
+  "=\0"
+  ">=\0"
+  ">\0"
+  "\0"
+};
+
 typedef struct ap_img_t
 {
   char node[512];
@@ -59,6 +81,7 @@ typedef struct ap_img_t
   // current sort and filter criteria for collection
   dt_db_property_t collection_sort;
   dt_db_property_t collection_filter;
+  ap_db_comp_t collection_comp;
   int collection_filter_val;
   char collection_filter_text[16];
   // current query

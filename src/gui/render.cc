@@ -565,6 +565,7 @@ extern "C" int ap_gui_init_imgui()
   impdt_abort = 0;
   d.swapchainrebuild = 1;
   d.ipl = dt_rc_get_int(&d.rc, "gui/images_per_line", 6);
+  d.img.collection_comp = s_comp_supe;
   dt_filebrowser_init(&vkdtbrowser);
   dt_filebrowser_init(&darktablebrowser);
   ap_navigation_init(&folderbrowser, 0);
@@ -575,6 +576,7 @@ extern "C" int ap_gui_init_imgui()
 // call from main loop:
 extern "C" void ap_gui_render_frame_imgui()
 {
+  const float spacing = 5.0f;
   ImGui_ImplVulkanH_Window* wd = &g_MainWindowData;
 
   // Resize swap chain?
@@ -613,8 +615,9 @@ extern "C" void ap_gui_render_frame_imgui()
     if(ImGui::CollapsingHeader("Collection"))
     {
       ImGui::Indent();
-      int32_t filter_prop = static_cast<int32_t>(d.img.collection_filter);
-      int32_t sort_prop   = static_cast<int32_t>(d.img.collection_sort);
+      int32_t filter_prop = d.img.collection_filter;
+      int32_t sort_prop = d.img.collection_sort;
+      int32_t comp_prop = d.img.collection_comp;
 
       if(ImGui::Combo("sort", &sort_prop, dt_db_property_text))
       {
@@ -628,13 +631,24 @@ extern "C" void ap_gui_render_frame_imgui()
       }
       if(filter_prop == s_prop_rating || filter_prop == s_prop_labels)
       {
+        const float item_width = ImGui::CalcItemWidth();
+        ImGui::PushItemWidth(ImGui::GetFontSize() * 3);
+        if(ImGui::Combo("##comp", &comp_prop, ap_db_comp_text))
+        {
+          d.img.collection_comp = static_cast<ap_db_comp_t>(comp_prop);
+          dt_gui_update_collection();
+        }
+        ImGui::PopItemWidth();
+        ImGui::SameLine(0.0f, spacing);
+        ImGui::PushItemWidth(item_width - ImGui::GetFontSize() * 3 - spacing);
         int filter_val = static_cast<int>(d.img.collection_filter_val);
         if(ImGui::InputInt("filter value", &filter_val, 1, 1, 0))
         {
-          if(filter_val >= 0 && filter_val <= 0xFF)
+          if(filter_val >= -1 && filter_val <= 5)
             d.img.collection_filter_val = static_cast<uint64_t>(filter_val);
           dt_gui_update_collection();
         }
+        ImGui::PopItemWidth();
       }
       else if(filter_prop == s_prop_filename || filter_prop == s_prop_createdate)
       {
@@ -665,7 +679,6 @@ extern "C" void ap_gui_render_frame_imgui()
 
     if(ImGui::CollapsingHeader("Images info"))
     {
-      const float spacing = 5.0f;
       ImGui::Text("Filename:");
       ImGui::SameLine(0.0f, spacing);
       ImGui::Text("%s", (d.img.selection_cnt != 1) ?  "-" : d.img.images[d.img.selection[0]].filename);
@@ -735,7 +748,7 @@ extern "C" void ap_gui_render_frame_imgui()
       int ipl = d.ipl;
       if(ImGui::InputInt("number of images per line", &ipl, 1, 3, 0))
       {
-        if(ipl >= 1 && <= 20)
+        if(ipl >= 1 && ipl <= 20)
           d.ipl = ipl;
         dt_rc_set_int(&d.rc, "gui/images_per_line", d.ipl);
       }
