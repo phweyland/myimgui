@@ -19,6 +19,7 @@ typedef struct ap_image_t
   char path[512];
   uint32_t hash;      // murmur3(filename)
   uint32_t thumbnail;
+  int thumb_coming;
   char datetime[24];
   float longitude;
   float latitude;

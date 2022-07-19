@@ -16,6 +16,7 @@ core/dlist.h\
 core/log.h\
 core/core.h\
 core/vk.h\
+core/queue.h\
 core/token.h
 DB_CFLAGS=$(shell pkg-config --cflags sqlite3) $(shell pkg-config --cflags zlib)
 DB_LDFLAGS=$(shell pkg-config --libs sqlite3) $(shell pkg-config --libs zlib)

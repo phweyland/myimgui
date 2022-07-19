@@ -1,6 +1,7 @@
 #pragma once
 
 #include "db/alloc.h"
+#include "core/queue.h"
 #include "core/threads.h"
 
 #include <vulkan/vulkan.h>
@@ -52,10 +53,7 @@ typedef struct dt_thumbnails_t
   char                  cachedir[1024];
 
   // vkdt-cli queue
-  uint32_t img_th_nb;
-  uint32_t img_th_req;
-  uint32_t img_th_done;
-  ap_image_t *img_ths;
+  ap_fifo_t img_th;
   int img_th_abort;
 }
 dt_thumbnails_t;
@@ -77,8 +75,8 @@ VkResult dt_thumbnails_load_one(const char *filename, uint32_t *thumb_index);
 void dt_thumbnails_load_list(uint32_t beg, uint32_t end);
 
 // request the thumbnail generation
-int ap_request_vkdt_thumbnail(ap_image_t *img);
+int ap_thumbnail_request_vkdt(const uint32_t index);
 // start thumbnail generation job
-int ap_start_vkdt_thumbnail_job();
+int ap_thumbnail_start_vkdt_job();
 // reset the thumbnail generation
-void ap_reset_vkdt_thumbnail();
+void ap_thumbnail_reset_vkdt();

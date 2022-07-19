@@ -76,11 +76,9 @@ dt_thumbnails_init(
   dt_log(s_log_db, "allocating %3.1f MB for thumbnails", heap_size/(1024.0*1024.0));
 
   // init thumbnail generation queue
-  tn->img_th_req = tn->img_th_done = 0;
-  tn->img_th_nb = 10;
-  tn->img_ths = calloc(tn->img_th_nb, sizeof(ap_image_t));
+  ap_fifo_init(&tn->img_th, sizeof(uint32_t), 3);
   tn->img_th_abort = 0;
-  ap_start_vkdt_thumbnail_job();
+  ap_thumbnail_start_vkdt_job();
 
   // alloc dummy image to get memory type bits and something to display
   VkFormat format = VK_FORMAT_BC1_RGB_SRGB_BLOCK;
@@ -196,7 +194,7 @@ void dt_thumbnails_cleanup()
     vkFreeMemory(d.vk.device, d.vk.image_buffer_memory, 0);
     vkDestroyBuffer(d.vk.device, d.vk.image_buffer, 0);
   }
-  free(tn->img_ths);
+  ap_fifo_clean(&tn->img_th);
 }
 
 void dt_thumbnails_load_list(uint32_t beg, uint32_t end)
@@ -531,31 +529,22 @@ typedef struct vkdt_job_t
   int taskid;
 } vkdt_job_t;
 
-int ap_request_vkdt_thumbnail(ap_image_t *img)
+int ap_thumbnail_request_vkdt(uint32_t index)
 {
-  uint32_t cnt = d.thumbs.img_th_req >= d.thumbs.img_th_done
-                 ? d.thumbs.img_th_req - d.thumbs.img_th_done
-                 : d.thumbs.img_th_req + d.thumbs.img_th_nb - d.thumbs.img_th_done;
-
-  if(cnt >= d.thumbs.img_th_nb - 1)
-    return 1;
-  if(cnt)
+  int res = 0;
+  if(d.img.images[index].thumbnail == 0)
   {
-    for(int i = 0; i < cnt; i++)
+    if(!d.img.images[index].thumb_coming)
     {
-      uint32_t j = d.thumbs.img_th_done + i;
-      if(j == d.thumbs.img_th_nb)
-        j = 0;
-      if(d.thumbs.img_ths[j].imgid == img->imgid)
-        return 0;
+      d.img.images[index].thumb_coming = 1;
+      res = ap_fifo_push(&d.thumbs.img_th, &index);
+      if(res)
+        d.img.images[index].thumb_coming = 0;
     }
   }
-  memcpy(&d.thumbs.img_ths[d.thumbs.img_th_req], img, sizeof(ap_image_t));
-
-  d.thumbs.img_th_req++;
-  if(d.thumbs.img_th_req == d.thumbs.img_th_nb)
-    d.thumbs.img_th_req = 0;
-  return 0;
+  else
+    d.img.images[index].thumb_coming = 0;
+  return res;
 }
 
 void vkdt_work(uint32_t item, void *arg)
@@ -569,52 +558,46 @@ void vkdt_work(uint32_t item, void *arg)
     if(d.thumbs.img_th_abort)
       return;
     nanosleep(&ts, NULL);
-    if(d.thumbs.img_th_req != d.thumbs.img_th_done)
+    uint32_t index;
+    int res = ap_fifo_pop(&d.thumbs.img_th, &index);
+    if(!res)
     {
-      ap_image_t *img = &d.thumbs.img_ths[d.thumbs.img_th_done];
       char cmd[512];
-      const char *f2 = img->filename + strlen(img->filename);
-      while(f2 > img->filename && *f2 != '.') f2--;
+      const char *f2 = d.img.images[index].filename + strlen(d.img.images[index].filename);
+      while(f2 > d.img.images[index].filename && *f2 != '.') f2--;
       snprintf(cmd, sizeof(cmd), "%svkdt-cli -g %s/%s.cfg --width 400 --height 400 "
                                  "--format o-bc1 --filename %s/%x.bc1 "
                                  "--config param:f2srgb:main:usemat:0", // rec2020
-               dt_rc_get(&d.rc, "vkdt_folder", ""), img->path, img->filename,
-               d.thumbs.cachedir, img->hash);
+               dt_rc_get(&d.rc, "vkdt_folder", ""), d.img.images[index].path, d.img.images[index].filename,
+               d.thumbs.cachedir, d.img.images[index].hash);
 
       double beg = dt_time();
       int res = system(cmd);  // launch vkdt-cli
       double end = dt_time();
-      dt_log(s_log_perf, "[thm] created in %3.0fms", 1000.0*(end-beg));
       if(res)
       {
-        dt_log(s_log_db, "[thm] running vkdt failed on image '%s/%s'!", img->path, img->filename);
+        dt_log(s_log_db, "[thm] running vkdt failed on image '%s/%s'!", d.img.images[index].path, d.img.images[index].filename);
         // mark as dead
         char cfgfilename[512];
         char bc1filename[512];
-        snprintf(cfgfilename, sizeof(cfgfilename), "%s/%x.bc1", d.thumbs.cachedir, img->hash);
+        snprintf(cfgfilename, sizeof(cfgfilename), "%s/%x.bc1", d.thumbs.cachedir, d.img.images[index].hash);
         snprintf(bc1filename, sizeof(bc1filename), "%sdata/bomb.bc1", dt_rc_get(&d.rc, "vkdt_folder", ""));
         // vkdt-cli failure on some jpg or tiff ?
         link(bc1filename, cfgfilename);
       }
-
-      if(d.thumbs.img_th_done != d.thumbs.img_th_req)
-      {
-        d.thumbs.img_th_done++;
-        if(d.thumbs.img_th_done == d.thumbs.img_th_nb)
-          d.thumbs.img_th_done = 0;
-      }
+      else dt_log(s_log_perf, "[thm] created in %3.0fms", 1000.0*(end-beg));
     }
   }
 }
 
-int ap_start_vkdt_thumbnail_job()
+int ap_thumbnail_start_vkdt_job()
 {
   static vkdt_job_t j;
   j.taskid = threads_task(1, -1, &j, vkdt_work, NULL);
   return j.taskid;
 }
 
-void ap_reset_vkdt_thumbnail()
+void ap_thumbnail_reset_vkdt()
 {
-  d.thumbs.img_th_req = d.thumbs.img_th_done;
+  ap_fifo_empty(&d.thumbs.img_th);
 }

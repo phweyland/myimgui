@@ -75,7 +75,7 @@ void ap_gui_cleanup()
 
 void ap_gui_switch_collection(const char *node, const int type)
 {
-  ap_reset_vkdt_thumbnail();
+  ap_thumbnail_reset_vkdt();
   if(d.img.images)
   {
     free(d.img.images);
