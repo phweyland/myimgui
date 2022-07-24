@@ -55,3 +55,18 @@ static inline void lighttable_keyboard(GLFWwindow *w, int key, int scancode, int
 #undef LABEL
   }
 }
+
+static inline void lighttable_mouse_scrolled(GLFWwindow* window, double xoff, double yoff)
+{
+  dt_gui_imgui_scrolled(window, xoff, yoff);
+}
+
+static inline void lighttable_mouse_button(GLFWwindow* window, int button, int action, int mods)
+{
+  dt_gui_imgui_mouse_button(window, button, action, mods);
+}
+
+static inline void lighttable_mouse_position(GLFWwindow* window, double x, double y)
+{
+  dt_gui_imgui_mouse_position(window, x, y);
+}

@@ -1,7 +1,7 @@
 #include "gui/view.h"
 #include "gui/gui.h"
 #include "gui/lighttable.h"
-#include "gui/map.h"
+#include "gui/maps.h"
 
 int lighttable_enter();
 int lighttable_leave();
@@ -52,6 +52,50 @@ void dt_view_keyboard(GLFWwindow *window, int key, int scancode, int action, int
     break;
   case s_view_map:
     map_keyboard(window, key, scancode, action, mods);
+    break;
+  default:;
+  }
+}
+
+void dt_view_mouse_scrolled(GLFWwindow *window, double xoff, double yoff)
+{
+  switch(d.view_mode)
+  {
+  case s_view_lighttable:
+    lighttable_mouse_scrolled(window, xoff, yoff);
+    break;
+  case s_view_map:
+    map_mouse_scrolled(window, xoff, yoff);
+    break;
+  default:;
+  }
+}
+
+void dt_view_mouse_button(GLFWwindow *window, int button, int action, int mods)
+{
+  // unfortunately this is always true:
+  // if(dt_gui_imgui_want_mouse()) return;
+  switch(d.view_mode)
+  {
+  case s_view_lighttable:
+    lighttable_mouse_button(window, button, action, mods);
+    break;
+  case s_view_map:
+    map_mouse_button(window, button, action, mods);
+    break;
+  default:;
+  }
+}
+
+void dt_view_mouse_position(GLFWwindow *window, double x, double y)
+{
+  switch(d.view_mode)
+  {
+  case s_view_lighttable:
+    lighttable_mouse_position(window, x, y);
+    break;
+  case s_view_map:
+    map_mouse_position(window, x, y);
     break;
   default:;
   }

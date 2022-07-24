@@ -229,11 +229,8 @@ void render_lighttable()
 ///*
   {
     ImGuiStyle &style = ImGui::GetStyle();
-    ImGuiWindowFlags window_flags = 0;
-    window_flags |= ImGuiWindowFlags_NoTitleBar;
-    window_flags |= ImGuiWindowFlags_NoMove;
-    window_flags |= ImGuiWindowFlags_NoResize;
-    window_flags |= ImGuiWindowFlags_NoBackground;
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+                                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoBackground;
     ImGui::SetNextWindowPos (ImVec2(d.center_x,  d.center_y),  ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(d.center_wd, d.center_ht), ImGuiCond_Always);
     ImGui::Begin("LighttableCenter", 0, window_flags);

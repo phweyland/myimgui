@@ -649,3 +649,18 @@ extern "C" void dt_gui_imgui_keyboard(GLFWwindow *window, int key, int scancode,
 {
   ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
 }
+
+extern "C" void dt_gui_imgui_mouse_button(GLFWwindow *window, int button, int action, int mods)
+{
+  ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+}
+
+extern "C" void dt_gui_imgui_scrolled(GLFWwindow *window, double xoff, double yoff)
+{
+  ImGui_ImplGlfw_ScrollCallback(window, xoff, yoff);
+}
+
+extern "C" void dt_gui_imgui_mouse_position(GLFWwindow *window, double xoff, double yoff)
+{
+  ImGui_ImplGlfw_CursorPosCallback(window, xoff, yoff);
+}

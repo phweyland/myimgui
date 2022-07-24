@@ -37,7 +37,7 @@ typedef struct dt_thumbnail_t
   uint64_t               offset;
   struct dt_thumbnail_t *prev;    // dlist for lru cache
   struct dt_thumbnail_t *next;
-  uint32_t               imgid;   // index into images->image[] or -1u
+//  uint32_t               imgid;   // index into images->image[] or -1u
   uint32_t               wd;
   uint32_t               ht;
 }
@@ -85,7 +85,8 @@ void dt_thumbnails_cleanup(dt_thumbnails_t *tn);
 // load one image thumb
 VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index);
 
-
+// init images thumbnails cache
+VkResult dt_thumbnails_vkdt_init();
 // update thumbnails for a list of image ids.
 void dt_thumbnails_vkdt_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t end);
 // load one bc1 thumbnail for a given filename. fills thumb_index and returns

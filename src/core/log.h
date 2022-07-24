@@ -16,7 +16,8 @@ typedef enum dt_log_mask_t
   s_log_mem  = 1<<3,
   s_log_db   = 1<<4,
   s_log_vk   = 1<<5,
-  s_log_err  = 1<<6,
+  s_log_map  = 1<<6,
+  s_log_err  = 1<<7,
   s_log_all  = -1ul,
 }
 dt_log_mask_t;

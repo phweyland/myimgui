@@ -2,6 +2,7 @@ GUI_O=gui/gui.o\
       gui/render.o\
 			gui/render_lighttable.o\
 			gui/render_map.o\
+			gui/maps.o\
       main.o\
       gui/themes.o\
 			gui/view.o\
@@ -21,6 +22,7 @@ GUI_H=gui/gui.h\
 			gui/widget_thumbnail.hh\
 			gui/lighttable.h\
 			gui/view.h\
+			gui/maps.h\
 			db/thumbnails.h\
 			db/database.h\
 			db/rc.h\

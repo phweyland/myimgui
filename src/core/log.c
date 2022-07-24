@@ -16,6 +16,7 @@ int dt_log_init_arg(int argc, char *argv[])
     "mem",
     "db",
     "vk",
+    "map",
     "err",
     "all",
   };
@@ -64,6 +65,7 @@ void dt_log(
     "[mem]",
     "[db]",
     "[vk]",
+    "[map]",
     "\e[31m[ERR]\e[0m",
   };
 

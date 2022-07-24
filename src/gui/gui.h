@@ -7,6 +7,7 @@
 // forward declare
 typedef struct GLFWwindow GLFWwindow;
 typedef struct ap_db_t ap_db_t;
+typedef struct ap_map_t ap_map_t;
 
 // view modes, lighttable, darkroom, ..
 typedef enum dt_gui_view_t
@@ -138,6 +139,9 @@ typedef struct apdt_t
   ap_db_t *db;
   char basedir[1024];
   int impdt_abort;
+
+  ap_map_t *map;          // map data
+  int debug;
 } apdt_t;
 
 extern apdt_t d;

@@ -2,6 +2,7 @@
 #include "gui/gui.h"
 #include "gui/render.h"
 #include "gui/view.h"
+#include "gui/maps.h"
 #include "core/core.h"
 #include "core/log.h"
 #include "core/threads.h"
@@ -50,7 +51,7 @@ static GLFWmonitor *get_current_monitor(GLFWwindow *window)
 static void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
   dt_view_keyboard(window, key, scancode, action, mods);
-  dt_gui_imgui_keyboard(window, key, scancode, action, mods);
+//  dt_gui_imgui_keyboard(window, key, scancode, action, mods);
   if(key == GLFW_KEY_F11 && action == GLFW_PRESS)
   {
     GLFWmonitor* monitor = get_current_monitor(d.window);
@@ -71,6 +72,21 @@ static void key_callback(GLFWwindow* window, int key, int scancode, int action, 
   }
 }
 
+static void scroll_callback(GLFWwindow *window, double xoff, double yoff)
+{
+  dt_view_mouse_scrolled(window, xoff, yoff);
+}
+
+static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+  dt_view_mouse_button(window, button, action, mods);
+}
+
+static void mouse_position_callback(GLFWwindow* window, double x, double y)
+{
+  dt_view_mouse_position(window, x, y);
+}
+
 int main(int argc, char *argv[])
 {
   char basedir[1024];
@@ -87,8 +103,12 @@ int main(int argc, char *argv[])
     return 1;
   }
   glfwSetKeyCallback(d.window, key_callback);
+  glfwSetMouseButtonCallback(d.window, mouse_button_callback);
+  glfwSetCursorPosCallback(d.window, mouse_position_callback);
+  glfwSetScrollCallback(d.window, scroll_callback);
 
-  dt_thumbnails_vkdt_init(&d.thumbs, 400, 400, 1000, 1ul<<30);
+  dt_thumbnails_vkdt_init();
+  ap_map_tiles_init();
 
   // Main loop
   while (!glfwWindowShouldClose(d.window))
@@ -106,6 +126,7 @@ int main(int argc, char *argv[])
   // Cleanup
   ap_gui_cleanup_imgui();
   dt_thumbnails_cleanup(&d.thumbs);
+  ap_map_tiles_cleanup();
   ap_gui_cleanup_vulkan();
   ap_gui_cleanup();
   threads_shutdown();
