@@ -60,19 +60,20 @@ dt_thumbnails_t;
 
 // init a thumbnail cache
 VkResult dt_thumbnails_init(
+    dt_thumbnails_t *tn,
     const int wd,            // max width of thumbnail
     const int ht,            // max height of thumbnail
     const int cnt,           // max number of thumbnails
-    const size_t heap_size); // max heap size in bytes (allocated on GPU)
+    const size_t heap_size);  // max heap size in bytes (allocated on GPU)
 
 // free all resources
-void dt_thumbnails_cleanup();
+void dt_thumbnails_cleanup(dt_thumbnails_t *tn);
 
 // load one bc1 thumbnail for a given filename. fills thumb_index and returns
 // VK_SUCCESS if all went well.
-VkResult dt_thumbnails_load_one(const char *filename, uint32_t *thumb_index);
+VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index);
 // update thumbnails for a list of image ids.
-void dt_thumbnails_load_list(uint32_t beg, uint32_t end);
+void dt_thumbnails_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t end);
 
 // request the thumbnail generation
 int ap_thumbnail_request_vkdt(const uint32_t index);

@@ -35,13 +35,8 @@ debug_test_list(
 #endif
 
 VkResult
-dt_thumbnails_init(
-    const int wd,
-    const int ht,
-    const int cnt,
-    const size_t heap_size)
+dt_thumbnails_init(dt_thumbnails_t *tn, const int wd, const int ht, const int cnt, const size_t heap_size)
 {
-  dt_thumbnails_t *tn = &d.thumbs;
   memset(tn, 0, sizeof(*tn));
 
   // TODO: getenv(XDG_CACHE_HOME)
@@ -165,7 +160,7 @@ dt_thumbnails_init(
   d.vk.image_buffer_size = 0;
 
   uint32_t id = 0;
-  if(dt_thumbnails_load_one("data/busybee.bc1", &id) != VK_SUCCESS)
+  if(dt_thumbnails_load_one(tn, "data/busybee.bc1", &id) != VK_SUCCESS)
   {
     dt_log(s_log_err|s_log_db, "could not load required thumbnail symbols!");
     return VK_INCOMPLETE;
@@ -173,9 +168,8 @@ dt_thumbnails_init(
   return VK_SUCCESS;
 }
 
-void dt_thumbnails_cleanup()
+void dt_thumbnails_cleanup(dt_thumbnails_t *tn)
 {
-  dt_thumbnails_t *tn = &d.thumbs;
   for(int i=0;i<tn->thumb_max;i++)
   {
     if(tn->thumb[i].image)      vkDestroyImage    (d.vk.device, tn->thumb[i].image,      0);
@@ -197,9 +191,8 @@ void dt_thumbnails_cleanup()
   ap_fifo_clean(&tn->img_th);
 }
 
-void dt_thumbnails_load_list(uint32_t beg, uint32_t end)
+void dt_thumbnails_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t end)
 {
-  dt_thumbnails_t *tn = &d.thumbs;
   // for all images in given collection
   for(int k=beg;k<end;k++)
   {
@@ -211,7 +204,7 @@ void dt_thumbnails_load_list(uint32_t beg, uint32_t end)
       char filename[PATH_MAX+100] = {0};
       snprintf(filename, sizeof(filename), "%s/%x.bc1", tn->cachedir, img->hash);
       img->thumbnail = -1u;
-      if(dt_thumbnails_load_one(filename, &img->thumbnail))
+      if(dt_thumbnails_load_one(tn, filename, &img->thumbnail))
         img->thumbnail = 0;
     }
     else if(img->thumbnail > 0 && img->thumbnail < tn->thumb_max)
@@ -277,7 +270,7 @@ static int _thumbnails_read(const char *filename, void *mapped)
 
 // load a previously cached thumbnail to a VkImage onto the GPU.
 // returns VK_SUCCESS on success
-VkResult dt_thumbnails_load_one(const char *filename, uint32_t *thumb_index)
+VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index)
 {
   VkResult err;
   char imgfilename[PATH_MAX+100] = {0};
@@ -296,14 +289,14 @@ VkResult dt_thumbnails_load_one(const char *filename, uint32_t *thumb_index)
   dt_thumbnail_t *th = 0;
   if(*thumb_index == -1u)
   { // allocate thumbnail from lru list
-    th = d.thumbs.lru;
-    d.thumbs.lru = d.thumbs.lru->next;             // move head
-    if(d.thumbs.mru == th) d.thumbs.mru = th->prev;// going to remove mru, need to move
+    th = tn->lru;
+    tn->lru = tn->lru->next;             // move head
+    if(tn->mru == th) tn->mru = th->prev;// going to remove mru, need to move
     DLIST_RM_ELEMENT(th);                                  // disconnect old head
-    d.thumbs.mru = DLIST_APPEND(d.thumbs.mru, th); // append to end and move tail
-    *thumb_index = th - d.thumbs.thumb;
+    tn->mru = DLIST_APPEND(tn->mru, th); // append to end and move tail
+    *thumb_index = th - tn->thumb;
   }
-  else th = d.thumbs.thumb + *thumb_index;
+  else th = tn->thumb + *thumb_index;
 
   if(*thumb_index == 0 && th->image)
     return VK_SUCCESS;
@@ -316,7 +309,7 @@ VkResult dt_thumbnails_load_one(const char *filename, uint32_t *thumb_index)
   th->image_view = 0;
   th->imgid      = -1u;
   th->offset     = -1u;
-  if(th->mem)    dt_vkfree(&d.thumbs.alloc, th->mem);
+  if(th->mem)    dt_vkfree(&tn->alloc, th->mem);
   th->mem        = 0;
   // keep dset and prev/next dlist pointers! (i.e. don't memset th)
 
@@ -352,10 +345,10 @@ VkResult dt_thumbnails_load_one(const char *filename, uint32_t *thumb_index)
   check_vk_result(err);
   VkMemoryRequirements mem_req;
   vkGetImageMemoryRequirements(d.vk.device, th->image, &mem_req);
-  if(mem_req.memoryTypeBits != d.thumbs.memory_type_bits)
+  if(mem_req.memoryTypeBits != tn->memory_type_bits)
     dt_log(s_log_vk|s_log_err, "[thm] memory type bits don't match!");
 
-  dt_vkmem_t *mem = dt_vkalloc(&d.thumbs.alloc, mem_req.size, mem_req.alignment);
+  dt_vkmem_t *mem = dt_vkalloc(&tn->alloc, mem_req.size, mem_req.alignment);
   // TODO: if (!mem) we have not enough memory! need to handle this now (more cache eviction?)
   // TODO: could do batch cleanup in case we need memory:
   // walk lru list from front and kill all contents (see above)
@@ -390,7 +383,7 @@ VkResult dt_thumbnails_load_one(const char *filename, uint32_t *thumb_index)
   };
 
   // bind image memory, create image view and descriptor set (used to display later on):
-  vkBindImageMemory(d.vk.device, th->image, d.thumbs.vkmem, th->offset);
+  vkBindImageMemory(d.vk.device, th->image, tn->vkmem, th->offset);
   images_view_create_info.image = th->image;
   err = vkCreateImageView(d.vk.device, &images_view_create_info, NULL, &th->image_view);
   check_vk_result(err);

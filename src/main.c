@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
   }
   glfwSetKeyCallback(d.window, key_callback);
 
-  dt_thumbnails_init(400, 400, 1000, 1ul<<30);
+  dt_thumbnails_init(&d.thumbs, 400, 400, 1000, 1ul<<30);
 
   // Main loop
   while (!glfwWindowShouldClose(d.window))
@@ -105,7 +105,7 @@ int main(int argc, char *argv[])
 
   // Cleanup
   ap_gui_cleanup_imgui();
-  dt_thumbnails_cleanup();
+  dt_thumbnails_cleanup(&d.thumbs);
   ap_gui_cleanup_vulkan();
   ap_gui_cleanup();
   threads_shutdown();
