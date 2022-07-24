@@ -525,18 +525,16 @@ typedef struct vkdt_job_t
 int ap_thumbnail_request_vkdt(uint32_t index)
 {
   int res = 0;
-  if(d.img.images[index].thumbnail == 0)
+  if(d.img.images[index].thumb_status != s_thumb_loaded)
   {
-    if(!d.img.images[index].thumb_coming)
+    if(d.img.images[index].thumb_status != s_thumb_downloading)
     {
-      d.img.images[index].thumb_coming = 1;
+      d.img.images[index].thumb_status = s_thumb_downloading;
       res = ap_fifo_push(&d.thumbs.img_th, &index);
       if(res)
-        d.img.images[index].thumb_coming = 0;
+        d.img.images[index].thumb_status = s_thumb_unavailable;
     }
   }
-  else
-    d.img.images[index].thumb_coming = 0;
   return res;
 }
 
