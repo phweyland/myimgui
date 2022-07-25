@@ -21,9 +21,10 @@ typedef struct ap_image_t ap_image_t;
 typedef enum ap_thumb_state_t
 {
     s_thumb_unavailable = 0, // thumb not available
-    s_thumb_downloading,     // thumb is downloading from server
+    s_thumb_downloading,     // thumb si being saved on disk
     s_thumb_ondisk,          // thumb is saved to disk, but not loaded into memory
     s_thumb_loaded,          // thumb has been loaded into memory
+    s_thumb_dead,            // cannot be saved on disk
 }
 ap_thumb_state_t;
 

@@ -59,11 +59,11 @@ dt_thumbnails_init(dt_thumbnails_t *tn, const int wd, const int ht, const int cn
   dt_vkalloc_init(&tn->alloc, tn->thumb_max + 10, heap_size);
 
   // init lru list
-  tn->lru = tn->thumb + 1; // [0] is special: busy bee
+  tn->lru = tn->thumb + 2; // [0] and [1] are special: busy bee and bomb
   tn->mru = tn->thumb + tn->thumb_max-1;
-  tn->thumb[1].next = tn->thumb+2;
+  tn->thumb[2].next = tn->thumb+3;
   tn->thumb[tn->thumb_max-1].prev = tn->thumb+tn->thumb_max-2;
-  for(int k=2;k<tn->thumb_max-1;k++)
+  for(int k=3;k<tn->thumb_max-1;k++)
   {
     tn->thumb[k].next = tn->thumb+k+1;
     tn->thumb[k].prev = tn->thumb+k-1;
@@ -165,6 +165,12 @@ dt_thumbnails_init(dt_thumbnails_t *tn, const int wd, const int ht, const int cn
     dt_log(s_log_err|s_log_db, "could not load required thumbnail symbols!");
     return VK_INCOMPLETE;
   }
+  id = 0;
+  if(dt_thumbnails_load_one(tn, "data/bomb.bc1", &id) != VK_SUCCESS)
+  {
+    dt_log(s_log_err|s_log_db, "could not load required thumbnail symbols!");
+    return VK_INCOMPLETE;
+  }
   return VK_SUCCESS;
 }
 
@@ -196,18 +202,20 @@ void dt_thumbnails_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t end)
   // for all images in given collection
   for(int k=beg;k<end;k++)
   {
-    if(k >= d.img.collection_cnt) break; // safety first. this probably means this job is stale! big danger!
+    if(k >= d.img.collection_cnt) break;
     ap_image_t *img = &d.img.images[d.img.collection[k]];
 
-    if(img->thumbnail == 0)
+    if(img->thumb_status != s_thumb_loaded)
     { // not loaded
       char filename[PATH_MAX+100] = {0};
       snprintf(filename, sizeof(filename), "%s/%x.bc1", tn->cachedir, img->hash);
       img->thumbnail = -1u;
       if(dt_thumbnails_load_one(tn, filename, &img->thumbnail))
         img->thumbnail = 0;
+      else
+        img->thumb_status = s_thumb_loaded;
     }
-    else if(img->thumbnail > 0 && img->thumbnail < tn->thumb_max)
+    else if(img->thumbnail > 1 && img->thumbnail < tn->thumb_max)
     { // loaded, update lru
       dt_thumbnail_t *th = tn->thumb + img->thumbnail;
       if(th == tn->lru) tn->lru = tn->lru->next; // move head
@@ -524,16 +532,18 @@ typedef struct vkdt_job_t
 
 int ap_thumbnail_request_vkdt(uint32_t index)
 {
+  if(d.img.images[index].thumb_status == s_thumb_loaded)
+    return 0;
+  if(d.img.images[index].thumb_status == s_thumb_dead)
+    return 1;
+
   int res = 0;
-  if(d.img.images[index].thumb_status != s_thumb_loaded)
+  if(d.img.images[index].thumb_status != s_thumb_downloading)
   {
-    if(d.img.images[index].thumb_status != s_thumb_downloading)
-    {
-      d.img.images[index].thumb_status = s_thumb_downloading;
-      res = ap_fifo_push(&d.thumbs.img_th, &index);
-      if(res)
-        d.img.images[index].thumb_status = s_thumb_unavailable;
-    }
+    d.img.images[index].thumb_status = s_thumb_downloading;
+    res = ap_fifo_push(&d.thumbs.img_th, &index);
+    if(res)
+      d.img.images[index].thumb_status = s_thumb_unavailable;
   }
   return res;
 }
@@ -567,16 +577,16 @@ void vkdt_work(uint32_t item, void *arg)
       double end = dt_time();
       if(res)
       {
+        d.img.images[index].thumb_status = s_thumb_dead;
         dt_log(s_log_db, "[thm] running vkdt failed on image '%s/%s'!", d.img.images[index].path, d.img.images[index].filename);
         // mark as dead
-        char cfgfilename[512];
-        char bc1filename[512];
-        snprintf(cfgfilename, sizeof(cfgfilename), "%s/%x.bc1", d.thumbs.cachedir, d.img.images[index].hash);
-        snprintf(bc1filename, sizeof(bc1filename), "%sdata/bomb.bc1", dt_rc_get(&d.rc, "vkdt_folder", ""));
-        // vkdt-cli failure on some jpg or tiff ?
-        link(bc1filename, cfgfilename);
+        d.img.images[index].thumbnail = 1; // bomb
       }
-      else dt_log(s_log_perf, "[thm] created in %3.0fms", 1000.0*(end-beg));
+      else
+      {
+        d.img.images[index].thumb_status = s_thumb_ondisk;
+        dt_log(s_log_perf, "[thm] created in %3.0fms", 1000.0*(end-beg));
+      }
     }
   }
 }
