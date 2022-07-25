@@ -85,8 +85,6 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
 // update thumbnails for a list of image ids.
 void dt_thumbnails_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t end);
 
-// request the thumbnail generation
-int ap_thumbnail_request_vkdt(const uint32_t index);
 // start thumbnail generation job
 int ap_thumbnail_start_vkdt_job();
 // reset the thumbnail generation

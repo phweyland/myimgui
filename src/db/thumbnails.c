@@ -205,7 +205,16 @@ void dt_thumbnails_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t end)
     if(k >= d.img.collection_cnt) break;
     ap_image_t *img = &d.img.images[d.img.collection[k]];
 
-    if(img->thumb_status != s_thumb_loaded)
+    if(img->thumb_status == s_thumb_loaded)// && img->thumbnail > 1 && img->thumbnail < tn->thumb_max)
+    { // loaded, update lru
+      dt_thumbnail_t *th = tn->thumb + img->thumbnail;
+      if(th == tn->lru) tn->lru = tn->lru->next; // move head
+      tn->lru->prev = 0;
+      if(tn->mru == th) tn->mru = th->prev;      // going to remove mru, need to move
+      DLIST_RM_ELEMENT(th);                      // disconnect old head
+      tn->mru = DLIST_APPEND(tn->mru, th);       // append to end and move tail
+    }
+    else if(img->thumb_status != s_thumb_dead)
     { // not loaded
       char filename[PATH_MAX+100] = {0};
       snprintf(filename, sizeof(filename), "%s/%x.bc1", tn->cachedir, img->hash);
@@ -215,14 +224,11 @@ void dt_thumbnails_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t end)
       else
         img->thumb_status = s_thumb_loaded;
     }
-    else if(img->thumbnail > 1 && img->thumbnail < tn->thumb_max)
-    { // loaded, update lru
-      dt_thumbnail_t *th = tn->thumb + img->thumbnail;
-      if(th == tn->lru) tn->lru = tn->lru->next; // move head
-      tn->lru->prev = 0;
-      if(tn->mru == th) tn->mru = th->prev;      // going to remove mru, need to move
-      DLIST_RM_ELEMENT(th);                      // disconnect old head
-      tn->mru = DLIST_APPEND(tn->mru, th);       // append to end and move tail
+    if(img->thumb_status == s_thumb_unavailable)
+    {
+      img->thumb_status = s_thumb_downloading;
+      if(ap_fifo_push(&tn->img_th, &d.img.collection[k]))
+        img->thumb_status = s_thumb_unavailable;
     }
   }
 }
@@ -529,24 +535,6 @@ typedef struct vkdt_job_t
 {
   int taskid;
 } vkdt_job_t;
-
-int ap_thumbnail_request_vkdt(uint32_t index)
-{
-  if(d.img.images[index].thumb_status == s_thumb_loaded)
-    return 0;
-  if(d.img.images[index].thumb_status == s_thumb_dead)
-    return 1;
-
-  int res = 0;
-  if(d.img.images[index].thumb_status != s_thumb_downloading)
-  {
-    d.img.images[index].thumb_status = s_thumb_downloading;
-    res = ap_fifo_push(&d.thumbs.img_th, &index);
-    if(res)
-      d.img.images[index].thumb_status = s_thumb_unavailable;
-  }
-  return res;
-}
 
 void vkdt_work(uint32_t item, void *arg)
 {
