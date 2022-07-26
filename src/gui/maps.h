@@ -20,9 +20,8 @@ typedef struct ap_map_t
   int z;
   int drag;
 
-  // tiles queue
-  ap_fifo_t tiles;
-  int tiles_abort;
+  // tiles queues
+  dt_thumbnails_t thumbs;
 } ap_map_t;
 
 typedef struct ap_map_box_t

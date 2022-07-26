@@ -220,11 +220,11 @@ void map_work(uint32_t item, void *arg)
 printf("map work started\n");
   while(1)
   {
-    if(d.map->tiles_abort)
+    if(d.map->thumbs.cache_req_abort)
       return;
     nanosleep(&ts, NULL);
     uint32_t index;
-    int res = ap_fifo_pop(&d.map->tiles, &index);
+    int res = ap_fifo_pop(&d.map->thumbs.cache_req, &index);
     if(!res)
     {
       printf("map work got tile to load\n");
@@ -241,22 +241,24 @@ int ap_map_start_tile_job()
 
 void ap_map_reset_tile()
 {
-  ap_fifo_empty(&d.map->tiles);
+  ap_fifo_empty(&d.map->thumbs.cache_req);
 }
 
 void ap_map_tiles_cleanup()
 {
-  d.map->tiles_abort = 1;
-  ap_fifo_clean(&d.map->tiles);
+  d.map->thumbs.cache_req_abort = 1;
+  ap_fifo_clean(&d.map->thumbs.cache_req);
 }
 
 void ap_map_tiles_init()
 {
-//  VkResult res = dt_thumbnails_init(&d.map->tiles, 400, 400, 1000, 1ul<<30, "vkdt", VK_FORMAT_BC1_RGB_SRGB_BLOCK);
-
   d.map = (ap_map_t *)malloc(sizeof(ap_map_t));
   memset(d.map, 0, sizeof(*d.map));
 
-  d.map->tiles_abort = 0;
+  VkResult res = dt_thumbnails_init(&d.map->thumbs, TILE_SIZE, TILE_SIZE, 500, 1ul<<29, "apdt-tiles", VK_FORMAT_R8_UNORM);
+
+//TODO set proper queue element size
+  ap_fifo_init(&d.map->thumbs.cache_req, sizeof(uint32_t), 30);
+  d.map->thumbs.cache_req_abort = 0;
   ap_map_start_tile_job();
 }
