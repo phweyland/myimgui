@@ -71,11 +71,6 @@ dt_thumbnails_init(dt_thumbnails_t *tn, const int wd, const int ht, const int cn
   }
   dt_log(s_log_db, "allocating %3.1f MB for thumbnails", heap_size/(1024.0*1024.0));
 
-  // init thumbnail generation queue
-  ap_fifo_init(&tn->cache_req, sizeof(uint32_t), 3);
-  tn->cache_req_abort = 0;
-  ap_thumbnails_vkdt_start_job();
-
   // alloc dummy image to get memory type bits and something to display
   tn->format = img_format;
   VkImageCreateInfo images_create_info = {
@@ -533,6 +528,11 @@ VkResult dt_thumbnails_vkdt_load_one(dt_thumbnails_t *tn, const char *filename, 
 VkResult dt_thumbnails_vkdt_init()
 {
   VkResult res = dt_thumbnails_init(&d.thumbs, 400, 400, 1000, 1ul<<30, "vkdt", VK_FORMAT_BC1_RGB_SRGB_BLOCK);
+
+  // init thumbnail generation queue
+  ap_fifo_init(&d.thumbs.cache_req, sizeof(uint32_t), 3);
+  d.thumbs.cache_req_abort = 0;
+  ap_thumbnails_vkdt_start_job();
 
   // [0] and [1] are special: busy bee and bomb
   d.thumbs.lru = d.thumbs.thumb + 3;
