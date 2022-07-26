@@ -524,13 +524,6 @@ VkResult dt_thumbnails_vkdt_load_one(dt_thumbnails_t *tn, const char *filename, 
 
   dt_thumbnail_t *th = _thumbnails_allocate(tn, thumb_index);
 
-  // skip busybee and bomb if already loaded
-  if((*thumb_index == 0 || *thumb_index == 1) && th->image)
-//  if(*thumb_index == 0 && th->image)
-  {
-printf("index %d\n", *thumb_index);
-    return VK_SUCCESS;
-  }
   if(_thumbnails_vkdt_get_size(imgfilename, &th->wd, &th->ht))
     return VK_INCOMPLETE;
 
