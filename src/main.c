@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
   }
   glfwSetKeyCallback(d.window, key_callback);
 
-  dt_thumbnails_init(&d.thumbs, 400, 400, 1000, 1ul<<30);
+  dt_thumbnails_vkdt_init(&d.thumbs, 400, 400, 1000, 1ul<<30);
 
   // Main loop
   while (!glfwWindowShouldClose(d.window))

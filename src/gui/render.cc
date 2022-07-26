@@ -620,7 +620,7 @@ extern "C" void ap_gui_cleanup_imgui()
 {
   // Cleanup
   d.impdt_abort = 1;
-  d.thumbs.img_th_abort = 1;
+  d.thumbs.cache_req_abort = 1;
   VkResult err = vkDeviceWaitIdle(d.vk.device);
   check_vk_result(err);
   ImGui_ImplVulkan_Shutdown();

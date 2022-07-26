@@ -53,6 +53,7 @@ typedef struct dt_thumbnails_t
   VkDeviceMemory        vkmem;
   VkDescriptorPool      dset_pool;
   VkDescriptorSetLayout dset_layout;
+  VkFormat              format;
   dt_thumbnail_t       *thumb;
   int                   thumb_max;
 
@@ -62,9 +63,9 @@ typedef struct dt_thumbnails_t
 
   char                  cachedir[1024];
 
-  // vkdt-cli queue
-  ap_fifo_t img_th;
-  int img_th_abort;
+  // cache request queue
+  ap_fifo_t cache_req;
+  int cache_req_abort;
 }
 dt_thumbnails_t;
 
@@ -74,18 +75,23 @@ VkResult dt_thumbnails_init(
     const int wd,            // max width of thumbnail
     const int ht,            // max height of thumbnail
     const int cnt,           // max number of thumbnails
-    const size_t heap_size);  // max heap size in bytes (allocated on GPU)
+    const size_t heap_size,  // max heap size in bytes (allocated on GPU)
+    const char *cachedir,
+    VkFormat img_format);
 
 // free all resources
 void dt_thumbnails_cleanup(dt_thumbnails_t *tn);
 
+// load one image thumb
+VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index);
+
+
+// update thumbnails for a list of image ids.
+void dt_thumbnails_vkdt_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t end);
 // load one bc1 thumbnail for a given filename. fills thumb_index and returns
 // VK_SUCCESS if all went well.
-VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index);
-// update thumbnails for a list of image ids.
-void dt_thumbnails_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t end);
-
+VkResult dt_thumbnails_vkdt_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index);
 // start thumbnail generation job
-int ap_thumbnail_start_vkdt_job();
+int ap_thumbnails_vkdt_start_job();
 // reset the thumbnail generation
-void ap_thumbnail_reset_vkdt();
+void ap_thumbnails_vkdt_reset();

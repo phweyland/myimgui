@@ -35,13 +35,14 @@ debug_test_list(
 #endif
 
 VkResult
-dt_thumbnails_init(dt_thumbnails_t *tn, const int wd, const int ht, const int cnt, const size_t heap_size)
+dt_thumbnails_init(dt_thumbnails_t *tn, const int wd, const int ht, const int cnt, const size_t heap_size,
+                    const char *cachedir, VkFormat img_format)
 {
   memset(tn, 0, sizeof(*tn));
 
   // TODO: getenv(XDG_CACHE_HOME)
   const char *home = getenv("HOME");
-  snprintf(tn->cachedir, sizeof(tn->cachedir), "%s/.cache/vkdt", home);
+  snprintf(tn->cachedir, sizeof(tn->cachedir), "%s/.cache/%s", home, cachedir);
   int err1 = mkdir(tn->cachedir, 0755);
   if(err1 && errno != EEXIST)
   {
@@ -59,11 +60,11 @@ dt_thumbnails_init(dt_thumbnails_t *tn, const int wd, const int ht, const int cn
   dt_vkalloc_init(&tn->alloc, tn->thumb_max + 10, heap_size);
 
   // init lru list
-  tn->lru = tn->thumb + 2; // [0] and [1] are special: busy bee and bomb
+  tn->lru = tn->thumb;
   tn->mru = tn->thumb + tn->thumb_max-1;
-  tn->thumb[2].next = tn->thumb+3;
+  tn->thumb[0].next = tn->thumb+1;
   tn->thumb[tn->thumb_max-1].prev = tn->thumb+tn->thumb_max-2;
-  for(int k=3;k<tn->thumb_max-1;k++)
+  for(int k=1;k<tn->thumb_max-1;k++)
   {
     tn->thumb[k].next = tn->thumb+k+1;
     tn->thumb[k].prev = tn->thumb+k-1;
@@ -71,16 +72,16 @@ dt_thumbnails_init(dt_thumbnails_t *tn, const int wd, const int ht, const int cn
   dt_log(s_log_db, "allocating %3.1f MB for thumbnails", heap_size/(1024.0*1024.0));
 
   // init thumbnail generation queue
-  ap_fifo_init(&tn->img_th, sizeof(uint32_t), 3);
-  tn->img_th_abort = 0;
-  ap_thumbnail_start_vkdt_job();
+  ap_fifo_init(&tn->cache_req, sizeof(uint32_t), 3);
+  tn->cache_req_abort = 0;
+  ap_thumbnails_vkdt_start_job();
 
   // alloc dummy image to get memory type bits and something to display
-  VkFormat format = VK_FORMAT_BC1_RGB_SRGB_BLOCK;
+  tn->format = img_format;
   VkImageCreateInfo images_create_info = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
     .imageType = VK_IMAGE_TYPE_2D,
-    .format = format,
+    .format = tn->format,
     .extent = {
       .width  = 24,
       .height = 24,
@@ -159,18 +160,6 @@ dt_thumbnails_init(dt_thumbnails_t *tn, const int wd, const int ht, const int cn
   d.vk.image_buffer = VK_NULL_HANDLE;
   d.vk.image_buffer_size = 0;
 
-  uint32_t id = 0;
-  if(dt_thumbnails_load_one(tn, "data/busybee.bc1", &id) != VK_SUCCESS)
-  {
-    dt_log(s_log_err|s_log_db, "could not load required thumbnail symbols!");
-    return VK_INCOMPLETE;
-  }
-  id = 0;
-  if(dt_thumbnails_load_one(tn, "data/bomb.bc1", &id) != VK_SUCCESS)
-  {
-    dt_log(s_log_err|s_log_db, "could not load required thumbnail symbols!");
-    return VK_INCOMPLETE;
-  }
   return VK_SUCCESS;
 }
 
@@ -194,148 +183,55 @@ void dt_thumbnails_cleanup(dt_thumbnails_t *tn)
     vkFreeMemory(d.vk.device, d.vk.image_buffer_memory, 0);
     vkDestroyBuffer(d.vk.device, d.vk.image_buffer, 0);
   }
-  ap_fifo_clean(&tn->img_th);
+  ap_fifo_clean(&tn->cache_req);
 }
 
-void dt_thumbnails_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t end)
+inline static void _thumbnails_move_to_mru(dt_thumbnails_t *tn, const uint32_t index)
 {
-  // for all images in given collection
-  for(int k=beg;k<end;k++)
-  {
-    if(k >= d.img.collection_cnt) break;
-    ap_image_t *img = &d.img.images[d.img.collection[k]];
-
-    if(img->thumb_status == s_thumb_loaded)// && img->thumbnail > 1 && img->thumbnail < tn->thumb_max)
-    { // loaded, update lru
-      dt_thumbnail_t *th = tn->thumb + img->thumbnail;
-      if(th == tn->lru) tn->lru = tn->lru->next; // move head
-      tn->lru->prev = 0;
-      if(tn->mru == th) tn->mru = th->prev;      // going to remove mru, need to move
-      DLIST_RM_ELEMENT(th);                      // disconnect old head
-      tn->mru = DLIST_APPEND(tn->mru, th);       // append to end and move tail
-    }
-    else if(img->thumb_status != s_thumb_dead)
-    { // not loaded
-      char filename[PATH_MAX+100] = {0};
-      snprintf(filename, sizeof(filename), "%s/%x.bc1", tn->cachedir, img->hash);
-      img->thumbnail = -1u;
-      if(dt_thumbnails_load_one(tn, filename, &img->thumbnail))
-        img->thumbnail = 0;
-      else
-        img->thumb_status = s_thumb_loaded;
-    }
-    if(img->thumb_status == s_thumb_unavailable)
-    {
-      img->thumb_status = s_thumb_downloading;
-      if(ap_fifo_push(&tn->img_th, &d.img.collection[k]))
-        img->thumb_status = s_thumb_unavailable;
-    }
-  }
+  dt_thumbnail_t *th = tn->thumb + index;
+  if(th == tn->lru) tn->lru = tn->lru->next; // move head
+  tn->lru->prev = 0;
+  if(tn->mru == th) tn->mru = th->prev;      // going to remove mru, need to move
+  DLIST_RM_ELEMENT(th);                      // disconnect old head
+  tn->mru = DLIST_APPEND(tn->mru, th);       // append to end and move tail
 }
 
-static int _thumbnails_get_size(const char *filename, uint32_t *wd, uint32_t *ht)
+inline static dt_thumbnail_t *_thumbnails_allocate(dt_thumbnails_t *tn, uint32_t *index)
 {
-  uint32_t header[4] = {0};
-  gzFile f = gzopen(filename, "rb");
-  if(!f || gzread(f, header, sizeof(uint32_t)*4) != sizeof(uint32_t)*4)
-  {
-    fprintf(stderr, "[bc1] %s: can't open file!\n", filename);
-    if(f) gzclose(f);
-    return 1;
-  }
-  // checks: magic != dt_token("bc1z") || version != 1
-  if(header[0] != dt_token("bc1z") || header[1] != 1)
-  {
-    fprintf(stderr, "[i-bc1] %s: wrong magic number or version!\n", filename);
-    gzclose(f);
-  }
-  *wd = 4*(header[2]/4);
-  *ht = 4*(header[3]/4);
-  gzclose(f);
-  return 0;
-}
-
-static int _thumbnails_read(const char *filename, void *mapped)
-{
-  uint32_t header[4] = {0};
-  gzFile f = gzopen(filename, "rb");
-  if(!f || gzread(f, header, sizeof(uint32_t)*4) != sizeof(uint32_t)*4)
-  {
-    fprintf(stderr, "[bc1] %s: can't open file!\n", filename);
-    if(f) gzclose(f);
-    return 1;
-  }
-  // checks: magic != dt_token("bc1z") || version != 1
-  if(header[0] != dt_token("bc1z") || header[1] != 1)
-  {
-    fprintf(stderr, "[i-bc1] %s: wrong magic number or version!\n", filename);
-    gzclose(f);
-    return 1;
-  }
-  const uint32_t wd = 4*(header[2]/4);
-  const uint32_t ht = 4*(header[3]/4);
-  // fprintf(stderr, "[i-bc1] %s magic %"PRItkn" version %u dim %u x %u\n",
-  //     filename, dt_token_str(header[0]),
-  //     header[1], header[2], header[3]);
-  gzread(f, mapped, sizeof(uint8_t)*8*(wd/4)*(ht/4));
-  gzclose(f);
-  return 0;
-}
-
-// load a previously cached thumbnail to a VkImage onto the GPU.
-// returns VK_SUCCESS on success
-VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index)
-{
-  VkResult err;
-  char imgfilename[PATH_MAX+100] = {0};
-  if(strncmp(filename, "data/", 5))
-  { // only hash images that aren't straight from our resource directory:
-    snprintf(imgfilename, sizeof(imgfilename), "%s", filename);
-  }
-  else
-  {
-    const char* dt_dir = dt_rc_get(&d.rc, "vkdt_folder", "");
-    snprintf(imgfilename, sizeof(imgfilename), "%s/%s", dt_dir, filename);
-  }
-  struct stat statbuf = {0};
-  if(stat(imgfilename, &statbuf)) return VK_INCOMPLETE;
-
-  dt_thumbnail_t *th = 0;
-  if(*thumb_index == -1u)
+  dt_thumbnail_t *th = NULL;
+  if(*index == -1u)
   { // allocate thumbnail from lru list
     th = tn->lru;
     tn->lru = tn->lru->next;             // move head
     if(tn->mru == th) tn->mru = th->prev;// going to remove mru, need to move
-    DLIST_RM_ELEMENT(th);                                  // disconnect old head
+    DLIST_RM_ELEMENT(th);                // disconnect old head
     tn->mru = DLIST_APPEND(tn->mru, th); // append to end and move tail
-    *thumb_index = th - tn->thumb;
+    *index = th - tn->thumb;
   }
-  else th = tn->thumb + *thumb_index;
+  else th = tn->thumb + *index;
+  return th;
+}
 
-  if(*thumb_index == 0 && th->image)
-    return VK_SUCCESS;
-
+// load a previously cached thumbnail to a VkImage onto the GPU.
+// returns VK_SUCCESS on success
+VkResult _thumbnails_load_one(dt_thumbnails_t *tn, dt_thumbnail_t *th, const char *imgfilename, VkResult _thumbnails_read())
+{
+  VkResult err;
   // cache eviction:
   // clean up memory in case there was something here:
   if(th->image)      vkDestroyImage(d.vk.device, th->image, VK_NULL_HANDLE);
   if(th->image_view) vkDestroyImageView(d.vk.device, th->image_view, VK_NULL_HANDLE);
   th->image      = 0;
   th->image_view = 0;
-  th->imgid      = -1u;
   th->offset     = -1u;
   if(th->mem)    dt_vkfree(&tn->alloc, th->mem);
   th->mem        = 0;
   // keep dset and prev/next dlist pointers! (i.e. don't memset th)
 
-  // now grab roi size from graph's main output node
-  if(_thumbnails_get_size(imgfilename, &th->wd, &th->ht))
-    return VK_INCOMPLETE;
-
-  VkFormat format = VK_FORMAT_BC1_RGB_SRGB_BLOCK;
   VkImageCreateInfo images_create_info = {
     .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
     .imageType = VK_IMAGE_TYPE_2D,
-    .format = format,
+    .format = tn->format,
     .extent = {
       .width  = th->wd,
       .height = th->ht,
@@ -374,7 +270,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
   VkImageViewCreateInfo images_view_create_info = {
     .sType      = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
     .viewType   = VK_IMAGE_VIEW_TYPE_2D,
-    .format     = format,
+    .format     = tn->format,
     .subresourceRange = {
       .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
       .baseMipLevel   = 0,
@@ -402,7 +298,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
   err = vkCreateImageView(d.vk.device, &images_view_create_info, NULL, &th->image_view);
   check_vk_result(err);
 
-  img_dset.dstSet    = th->dset;
+  img_dset.dstSet = th->dset;
   img_info.imageView = th->image_view;
   vkUpdateDescriptorSets(d.vk.device, 1, &img_dset, 0, NULL);
 
@@ -449,7 +345,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
     check_vk_result(err);
     if(_thumbnails_read(imgfilename, mapped))
     {
-      dt_log(s_log_err, "[thm] reading the thumbnail graph failed on image '%s'!", imgfilename);
+      dt_log(s_log_err, "[thm] reading the thumbnail '%s'!", imgfilename);
       res = VK_INCOMPLETE;
     }
     VkMappedMemoryRange range[1] = {};
@@ -526,8 +422,147 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint3
   }
 
   clock_t end = clock();
-  dt_log(s_log_perf, "[thm] read in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
+  dt_log(s_log_perf, "[thm] read %s in %3.0fms", imgfilename, 1000.0*(end-beg)/CLOCKS_PER_SEC);
 
+  return res;
+}
+
+void dt_thumbnails_vkdt_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t end)
+{
+  // for all images in given collection
+  for(int k = beg; k < end; k++)
+  {
+    if(k >= d.img.collection_cnt) break;
+    ap_image_t *img = &d.img.images[d.img.collection[k]];
+
+    if(img->thumb_status == s_thumb_loaded)// && img->thumbnail > 1 && img->thumbnail < tn->thumb_max)
+    { // loaded, update lru/mru
+      _thumbnails_move_to_mru(tn, img->thumbnail);
+    }
+    else if(img->thumb_status != s_thumb_dead)
+    { // not loaded
+      char filename[PATH_MAX+100] = {0};
+      snprintf(filename, sizeof(filename), "%s/%x.bc1", tn->cachedir, img->hash);
+      img->thumbnail = -1u;
+      if(dt_thumbnails_vkdt_load_one(tn, filename, &img->thumbnail))
+        img->thumbnail = 0;
+      else
+        img->thumb_status = s_thumb_loaded;
+    }
+    if(img->thumb_status == s_thumb_unavailable)
+    {
+      img->thumb_status = s_thumb_downloading;
+      if(ap_fifo_push(&tn->cache_req, &d.img.collection[k]))
+        img->thumb_status = s_thumb_unavailable;
+    }
+  }
+}
+
+static int _thumbnails_vkdt_get_size(const char *filename, uint32_t *wd, uint32_t *ht)
+{
+  uint32_t header[4] = {0};
+  gzFile f = gzopen(filename, "rb");
+  if(!f || gzread(f, header, sizeof(uint32_t)*4) != sizeof(uint32_t)*4)
+  {
+    fprintf(stderr, "[bc1] %s: can't open file!\n", filename);
+    if(f) gzclose(f);
+    return 1;
+  }
+  // checks: magic != dt_token("bc1z") || version != 1
+  if(header[0] != dt_token("bc1z") || header[1] != 1)
+  {
+    fprintf(stderr, "[i-bc1] %s: wrong magic number or version!\n", filename);
+    gzclose(f);
+  }
+  *wd = 4*(header[2]/4);
+  *ht = 4*(header[3]/4);
+  gzclose(f);
+  return 0;
+}
+
+static int _thumbnails_vkdt_read(const char *filename, void *mapped)
+{
+  uint32_t header[4] = {0};
+  gzFile f = gzopen(filename, "rb");
+  if(!f || gzread(f, header, sizeof(uint32_t)*4) != sizeof(uint32_t)*4)
+  {
+    fprintf(stderr, "[bc1] %s: can't open file!\n", filename);
+    if(f) gzclose(f);
+    return 1;
+  }
+  // checks: magic != dt_token("bc1z") || version != 1
+  if(header[0] != dt_token("bc1z") || header[1] != 1)
+  {
+    fprintf(stderr, "[i-bc1] %s: wrong magic number or version!\n", filename);
+    gzclose(f);
+    return 1;
+  }
+  const uint32_t wd = 4*(header[2]/4);
+  const uint32_t ht = 4*(header[3]/4);
+  // fprintf(stderr, "[i-bc1] %s magic %"PRItkn" version %u dim %u x %u\n",
+  //     filename, dt_token_str(header[0]),
+  //     header[1], header[2], header[3]);
+  gzread(f, mapped, sizeof(uint8_t)*8*(wd/4)*(ht/4));
+  gzclose(f);
+  return 0;
+}
+
+VkResult dt_thumbnails_vkdt_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index)
+{
+  char imgfilename[PATH_MAX+100] = {0};
+  if(strncmp(filename, "data/", 5))
+  { // only hash images that aren't straight from our resource directory:
+    snprintf(imgfilename, sizeof(imgfilename), "%s", filename);
+  }
+  else
+  {
+    const char* dt_dir = dt_rc_get(&d.rc, "vkdt_folder", "");
+    snprintf(imgfilename, sizeof(imgfilename), "%s/%s", dt_dir, filename);
+  }
+  struct stat statbuf = {0};
+  if(stat(imgfilename, &statbuf)) return VK_INCOMPLETE;
+
+  dt_thumbnail_t *th = _thumbnails_allocate(tn, thumb_index);
+
+  // skip busybee and bomb if already loaded
+  if((*thumb_index == 0 || *thumb_index == 1) && th->image)
+//  if(*thumb_index == 0 && th->image)
+  {
+printf("index %d\n", *thumb_index);
+    return VK_SUCCESS;
+  }
+  if(_thumbnails_vkdt_get_size(imgfilename, &th->wd, &th->ht))
+    return VK_INCOMPLETE;
+
+  return _thumbnails_load_one(tn, th, imgfilename, _thumbnails_vkdt_read);
+}
+
+VkResult dt_thumbnails_vkdt_init()
+{
+  VkResult res = dt_thumbnails_init(&d.thumbs, 400, 400, 1000, 1ul<<30, "vkdt", VK_FORMAT_BC1_RGB_SRGB_BLOCK);
+
+  // [0] and [1] are special: busy bee and bomb
+  d.thumbs.lru = d.thumbs.thumb + 3;
+  d.thumbs.thumb[3].prev = 0;
+  uint32_t thumb_index = 0;
+  if(dt_thumbnails_vkdt_load_one(&d.thumbs, "data/busybee.bc1", &thumb_index) != VK_SUCCESS)
+  {
+    dt_log(s_log_err|s_log_db, "could not load required thumbnail symbols!");
+    return VK_INCOMPLETE;
+  }
+  // workaround: setting bomb on thumb [1] overrides the busybee ...
+  thumb_index = 1;
+  if(dt_thumbnails_vkdt_load_one(&d.thumbs, "data/busybee.bc1", &thumb_index) != VK_SUCCESS)
+  {
+    dt_log(s_log_err|s_log_db, "could not load required thumbnail symbols!");
+    return VK_INCOMPLETE;
+  }
+  thumb_index = 2;
+  if(dt_thumbnails_vkdt_load_one(&d.thumbs, "data/bomb.bc1", &thumb_index) != VK_SUCCESS)
+  {
+    dt_log(s_log_err|s_log_db, "could not load required thumbnail symbols!");
+    return VK_INCOMPLETE;
+  }
   return res;
 }
 
@@ -544,11 +579,11 @@ void vkdt_work(uint32_t item, void *arg)
 
   while(1)
   {
-    if(d.thumbs.img_th_abort)
+    if(d.thumbs.cache_req_abort)
       return;
     nanosleep(&ts, NULL);
     uint32_t index;
-    int res = ap_fifo_pop(&d.thumbs.img_th, &index);
+    int res = ap_fifo_pop(&d.thumbs.cache_req, &index);
     if(!res)
     {
       char cmd[512];
@@ -568,7 +603,7 @@ void vkdt_work(uint32_t item, void *arg)
         d.img.images[index].thumb_status = s_thumb_dead;
         dt_log(s_log_db, "[thm] running vkdt failed on image '%s/%s'!", d.img.images[index].path, d.img.images[index].filename);
         // mark as dead
-        d.img.images[index].thumbnail = 1; // bomb
+        d.img.images[index].thumbnail = 2; // bomb
       }
       else
       {
@@ -579,14 +614,14 @@ void vkdt_work(uint32_t item, void *arg)
   }
 }
 
-int ap_thumbnail_start_vkdt_job()
+int ap_thumbnails_vkdt_start_job()
 {
   static vkdt_job_t j;
   j.taskid = threads_task(1, -1, &j, vkdt_work, NULL);
   return j.taskid;
 }
 
-void ap_thumbnail_reset_vkdt()
+void ap_thumbnails_vkdt_reset()
 {
-  ap_fifo_empty(&d.thumbs.img_th);
+  ap_fifo_empty(&d.thumbs.cache_req);
 }

@@ -265,7 +265,7 @@ void render_lighttable()
       if(first || clipper.ItemsHeight > 0.0f)
       {
         first = 0;
-        dt_thumbnails_load_list(&d.thumbs, clipper.DisplayStart * d.ipl, clipper.DisplayEnd * d.ipl);
+        dt_thumbnails_vkdt_load_list(&d.thumbs, clipper.DisplayStart * d.ipl, clipper.DisplayEnd * d.ipl);
         for(int line=clipper.DisplayStart;line<clipper.DisplayEnd;line++)
         {
           uint32_t i = line * d.ipl;
