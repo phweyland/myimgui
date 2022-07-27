@@ -2,7 +2,8 @@
 #include "core/log.h"
 #include "core/core.h"
 #include "core/queue.h"
-
+#include "core/dlist.h"
+#include "core/token.h"
 #include <math.h>
 #include <stdio.h>
 
@@ -80,6 +81,47 @@ inline static double _map2win(const double mx)
   return (mx - d.map->xm) / d.map->pixel_size;
 }
 
+static int count = 1;
+inline static ap_tile_t *_tile_allocate(ap_map_t *tl, const uint64_t zxy, uint32_t *index)
+{
+//  if(count < 25)
+//  {
+/*    for(int i = 0; i < d.map->tiles_max; i++)
+    {
+      printf("%s%02ld %s%02ld : %s\n", d.map->tiles[i].prev == 0 ? " " : "p", d.map->tiles[i].prev == 0 ? 0 : d.map->tiles[i].prev - d.map->tiles,
+                              d.map->tiles[i].next == 0 ? " " : "p", d.map->tiles[i].next == 0 ? 0 : d.map->tiles[i].next - d.map->tiles,
+                              dt_token_str(d.map->tiles[i].zxy));
+    }
+    printf("lru %02ld mru %02ld\n", d.map->lru - d.map->tiles, d.map->mru - d.map->tiles);
+    printf("count %d\n", count);*/
+//  }
+
+  ap_tile_t *ti = NULL;
+  for(ti = tl->mru; ti->prev != NULL; ti = ti->prev)
+  {
+    if(ti->zxy == zxy)
+    {
+      *index = ti - tl->tiles;
+      return ti;
+    }
+    else if(ti->prev == tl->mru || ti->zxy == 0)
+      break;
+  }
+  if(*index == -1u)
+  { // allocate tile from lru list
+    ti = tl->lru;
+    tl->lru = tl->lru->next;             // move head
+    if(tl->mru == ti) tl->mru = ti->prev;// going to remove mru, need to move
+    DLIST_RM_ELEMENT(ti);                // disconnect old head
+    tl->mru = DLIST_APPEND(tl->mru, ti); // append to end and move tail
+    ti->zxy = zxy;
+    *index = ti - tl->tiles;
+  }
+  else ti = tl->tiles + *index;
+  count++;
+  return ti;
+}
+
 static int _append_region(int z, double min_x, double max_x, double min_y, double max_y)
 {
   int k = pow(2,z);
@@ -94,20 +136,26 @@ static int _append_region(int z, double min_x, double max_x, double min_y, doubl
 //  printf("mx %lf Mx %lf my %lf My %lf- k %d xa %d xb %d ya %d yb %d\n",
 //        min_x,  max_x, min_y,  max_y , k, xa, xb, ya, yb);
 
-  for (int y = ya; y < yb; ++y)
+  for(int y = ya; y < yb; ++y)
   {
-    for (int x = xa; x < xb; ++x)
+    for(int x = xa; x < xb; ++x)
     {
+      char text[10];
+      snprintf(text, sizeof(text),"%02d/%02d/%02d", z, x, y);
+      uint64_t zxy = dt_token(text);
+      uint32_t index = -1u;
+      ap_tile_t *ti = _tile_allocate(d.map, zxy, &index);
 //      double coord[3] = {z,x,y};
 //      std::shared_ptr<Tile> tile = request_tile(coord);
 //      m_region.push_back({coord,tile});
 //      if (tile == nullptr || tile->state != TileState::Loaded)
-      printf("%d/%d/%d ", z, x, y);
+//      printf("%02d/%02d/%02d ", z, x, y);
         covered = 0;
     }
-    printf("\n");
+//    printf("\n");
   }
-printf("\n");
+//printf("tiles lru %d mru %d\n", d.map->lru - d.map->tiles, d.map->mru - d.map->tiles);
+
   return covered;
 }
 
@@ -126,16 +174,16 @@ void ap_map_get_region()
     while (r > tile_size && z < MAX_ZOOM)
         r = 1.0 / pow(2,++z);
 
-    _append_region(z, min_x, max_x, min_y, max_y);
+    // clear the queue
+    ap_fifo_empty(&d.map->thumbs.cache_req);
+
+    if(!_append_region(z, min_x, max_x, min_y, max_y) && z > 0)
+    {
+      _append_region(--z, min_x, max_x, min_y, max_y);
+    //  std::reverse(m_region.begin(),m_region.end());
+    }
     d.map->z = z;
     d.map->pixel_size = d.map->wd / (double)d.center_wd;
-
-/*    m_region.clear();
-    if (!append_region(z, min_x, min_y, size_x, size_y) && z > 0) {
-        append_region(--z, min_x, min_y, size_x, size_y);
-        std::reverse(m_region.begin(),m_region.end());
-    }
-    return m_region;*/
 }
 
 
@@ -257,8 +305,22 @@ void ap_map_tiles_init()
 
   VkResult res = dt_thumbnails_init(&d.map->thumbs, TILE_SIZE, TILE_SIZE, 500, 1ul<<29, "apdt-tiles", VK_FORMAT_R8_UNORM);
 
-//TODO set proper queue element size
-  ap_fifo_init(&d.map->thumbs.cache_req, sizeof(uint32_t), 30);
+  d.map->tiles_max = 100;
+  // init tiles collection
+  d.map->tiles = malloc(sizeof(ap_tile_t)*d.map->tiles_max);
+  memset(d.map->tiles, 0, sizeof(ap_tile_t)*d.map->tiles_max);
+  // init lru list
+  d.map->lru = d.map->tiles;
+  d.map->mru = d.map->tiles + d.map->tiles_max-1;
+  d.map->tiles[0].next = d.map->tiles+1;
+  d.map->tiles[d.map->tiles_max-1].prev = d.map->tiles+d.map->tiles_max-2;
+  for(int k=1;k<d.map->tiles_max-1;k++)
+  {
+    d.map->tiles[k].next = d.map->tiles+k+1;
+    d.map->tiles[k].prev = d.map->tiles+k-1;
+  }
+
+  ap_fifo_init(&d.map->thumbs.cache_req, sizeof(uint64_t), 30);
   d.map->thumbs.cache_req_abort = 0;
   ap_map_start_tile_job();
 }
