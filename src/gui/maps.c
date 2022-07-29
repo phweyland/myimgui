@@ -1,4 +1,6 @@
 #include "gui/maps.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "../ext/stb_image.h"
 #include "core/log.h"
 #include "core/core.h"
 #include "core/queue.h"
@@ -6,79 +8,29 @@
 #include "core/token.h"
 #include <math.h>
 #include <stdio.h>
+#include <curl/curl.h>
+#include <sys/stat.h>
 
-#define TILE_SERVER   "https://a.tile.openstreetmap.org/" // the tile map server url
+int ap_map_request_tile(const uint32_t index);
 
-void ap_map_tile_subdir(ap_tile_t *t)
-{
-  const int len = snprintf(t->subdir, sizeof(t->subdir), "%d/%d/", t->z, t->x);
-  if(len >= sizeof(t->subdir))
-    dt_log(s_log_map|s_log_err, "tile subdir too small");
-}
-
-void ap_map_tile_dir(ap_tile_t *t)
-{
-  const int len = snprintf(t->dir, sizeof(t->dir), "tiles/%s", t->subdir);
-  if(len >= sizeof(t->dir))
-    dt_log(s_log_map|s_log_err, "tile dir too small");
-}
-
-void ap_map_tile_file(ap_tile_t *t)
-{
-  const int len = snprintf(t->file, sizeof(t->file), "%d.png", t->y);
-  if(len >= sizeof(t->file))
-    dt_log(s_log_map|s_log_err, "tile file too small");
-}
-
-void ap_map_tile_path(ap_tile_t *t)
-{
-  const int len = snprintf(t->path, sizeof(t->path), "%s%s", t->dir, t->file);
-  if(len >= sizeof(t->path))
-    dt_log(s_log_map|s_log_err, "tile path too small");
-}
-
-void ap_map_tile_url(ap_tile_t *t)
-{
-  const int len = snprintf(t->url, sizeof(t->url), "%s%s%s", TILE_SERVER, t->subdir, t->file);
-  if(len >= sizeof(t->url))
-    dt_log(s_log_map|s_log_err, "tile url too small");
-}
-
-void ap_map_tile_label(ap_tile_t *t)
-{
-  const int len = snprintf(t->label, sizeof(t->label), "%s%d", t->subdir, t->y);
-  if(len >= sizeof(t->label))
-    dt_log(s_log_map|s_log_err, "tile label too small");
-}
-
-void ap_map_tile_bounds(ap_tile_t *t)
-{
-  double n = 1.0 / pow(2.0, t->z);
-  t->b.b00 = t->x * n;
-  t->b.b01 = (1.0 + t->y) * n;
-  t->b.b10 = (1.0 + t->x) * n;
-  t->b.b11 = t->y * n;
-}
-
-size_t ap_map_curl_write_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
-{
-  FILE *stream = (FILE *)userdata;
-  if (!stream) {
-      printf("No stream\n");
-      return 0;
-  }
-  size_t written = fwrite((FILE *)ptr, size, nmemb, stream);
-  return written;
-}
-
-inline static double _win2map(const double wx)
+inline static double _win2map_x(const double wx)
 {
   return d.map->xm + (double)wx * d.map->pixel_size;
 }
 
-inline static double _map2win(const double mx)
+inline static double _win2map_y(const double wy)
 {
-  return (mx - d.map->xm) / d.map->pixel_size;
+  return d.map->ym + (double)wy * d.map->pixel_size;
+}
+
+size_t curl_write_cb(void *ptr, size_t size, size_t nmemb, void *userdata) {
+  FILE *stream = (FILE *)userdata;
+  if (!stream) {
+    printf("No stream\n");
+    return 0;
+  }
+  size_t written = fwrite((FILE *)ptr, size, nmemb, stream);
+  return written;
 }
 
 static int count = 1;
@@ -102,6 +54,11 @@ inline static ap_tile_t *_tile_allocate(ap_map_t *tl, const uint64_t zxy, uint32
     if(ti->zxy == zxy)
     {
       *index = ti - tl->tiles;
+      if(ti == tl->lru) tl->lru = tl->lru->next; // move head
+      tl->lru->prev = 0;
+      if(tl->mru == ti) tl->mru = ti->prev;      // going to remove mru, need to move
+      DLIST_RM_ELEMENT(ti);                      // disconnect old head
+      tl->mru = DLIST_APPEND(tl->mru, ti);       // append to end and move tail
       return ti;
     }
     else if(ti->prev == tl->mru || ti->zxy == 0)
@@ -115,6 +72,7 @@ inline static ap_tile_t *_tile_allocate(ap_map_t *tl, const uint64_t zxy, uint32
     DLIST_RM_ELEMENT(ti);                // disconnect old head
     tl->mru = DLIST_APPEND(tl->mru, ti); // append to end and move tail
     ti->zxy = zxy;
+    ti->thumb_status = s_thumb_unavailable;
     *index = ti - tl->tiles;
   }
   else ti = tl->tiles + *index;
@@ -124,7 +82,8 @@ inline static ap_tile_t *_tile_allocate(ap_map_t *tl, const uint64_t zxy, uint32
 
 static int _append_region(int z, double min_x, double max_x, double min_y, double max_y)
 {
-  int k = pow(2,z);
+//  int k = pow(2,z);
+  int k = 1 << z;
 //  double r = 1.0 / k;
   int xa = min_x * k;
   int xb = ceil(max_x * k);
@@ -144,12 +103,17 @@ static int _append_region(int z, double min_x, double max_x, double min_y, doubl
       snprintf(text, sizeof(text),"%02d/%02d/%02d", z, x, y);
       uint64_t zxy = dt_token(text);
       uint32_t index = -1u;
-      ap_tile_t *ti = _tile_allocate(d.map, zxy, &index);
-//      double coord[3] = {z,x,y};
-//      std::shared_ptr<Tile> tile = request_tile(coord);
-//      m_region.push_back({coord,tile});
-//      if (tile == nullptr || tile->state != TileState::Loaded)
+      ap_tile_t *tile = _tile_allocate(d.map, zxy, &index);
+      ap_map_request_tile(index);
+      tile->x = x;
+      tile->y = y;
+      tile->z = z;
+      if(d.map->region_cnt < d.map->region_max)
+        d.map->region[d.map->region_cnt++] = index;
+      else
+        dt_log(s_log_map|s_log_err, "[map] tiles list too short");
 //      printf("%02d/%02d/%02d ", z, x, y);
+      if(tile->thumb_status != s_thumb_loaded)
         covered = 0;
     }
 //    printf("\n");
@@ -161,29 +125,37 @@ static int _append_region(int z, double min_x, double max_x, double min_y, doubl
 
 void ap_map_get_region()
 {
-    d.map->wd = d.map->xM - d.map->xm;
-    d.map->ht = d.map->yM - d.map->ym;
-    double min_x = CLAMP(d.map->xm, 0.0, 1.0);
-    double min_y = CLAMP(d.map->ym, 0.0, 1.0);
-    double max_x = CLAMP(d.map->xM, 0.0, 1.0);
-    double max_y = CLAMP(d.map->yM, 0.0, 1.0);
+  d.map->wd = d.map->xM - d.map->xm;
+  d.map->ht = d.map->yM - d.map->ym;
+  double min_x = CLAMP(d.map->xm, 0.0, 1.0);
+  double min_y = CLAMP(d.map->ym, 0.0, 1.0);
+  double max_x = CLAMP(d.map->xM, 0.0, 1.0);
+  double max_y = CLAMP(d.map->yM, 0.0, 1.0);
 
-    double tile_size = d.map->wd * (TILE_SIZE / (double)d.center_wd);
-    int z = 0;
-    double r = 1.0 / pow(2,z);
-    while (r > tile_size && z < MAX_ZOOM)
-        r = 1.0 / pow(2,++z);
+  double max_tile_size = d.map->wd * ((double)TILE_SIZE / (double)d.center_wd);
+  int z = 0;
+//  double r = 1.0 / pow(2,z);
+  double r = 1.0 / (double)(1<<z);
+  while (r > max_tile_size && z < MAX_ZOOM)
+//    r = 1.0 / pow(2,++z);
+    r = 1.0 / (double)(1<<++z);
+  // r = tile size on the map (0,1)
 
-    // clear the queue
-    ap_fifo_empty(&d.map->thumbs.cache_req);
 
-    if(!_append_region(z, min_x, max_x, min_y, max_y) && z > 0)
+  d.map->region_cnt = 0;
+//    _append_region(z, min_x, max_x, min_y, max_y);
+  if(!_append_region(z, min_x, max_x, min_y, max_y) && z > 0)
+  {
+    _append_region(--z, min_x, max_x, min_y, max_y);
+    for(int i = 0; i < d.map->region_cnt / 2; i++)
     {
-      _append_region(--z, min_x, max_x, min_y, max_y);
-    //  std::reverse(m_region.begin(),m_region.end());
+      uint32_t index = d.map->region[i];
+      d.map->region[i] = d.map->region[d.map->region_cnt-1-i];
+      d.map->region[d.map->region_cnt-1-i] = index;
     }
-    d.map->z = z;
-    d.map->pixel_size = d.map->wd / (double)d.center_wd;
+  }
+  d.map->z = z;
+  d.map->pixel_size = d.map->wd / (double)d.center_wd;
 }
 
 
@@ -195,8 +167,8 @@ void map_mouse_scrolled(GLFWwindow* window, double xoff, double yoff)
   if(x >= d.center_x || x < (d.center_x + d.center_wd))
   {
     const double rate = (yoff > 0.0) ? 1.0f/1.2f : 1.2f;
-    const double mx = _win2map(x);
-    const double my = _win2map(y);
+    const double mx = _win2map_x(x);
+    const double my = _win2map_y(y);
     d.map->xm = mx - rate * (mx - d.map->xm);
     d.map->xM = mx + rate * (d.map->xM - mx);
     d.map->ym = my - rate * (my - d.map->ym);
@@ -237,35 +209,102 @@ void map_mouse_position(GLFWwindow* window, double x, double y)
 //    printf("x %lf,%lf y %lf,%lf\n", d.map->xm, d.map->xM, d.map->ym, d.map->yM);
   }
 }
+
+static int _thumbnails_map_get_size(const char *filename, uint32_t *wd, uint32_t *ht)
+{
+  int wdl;
+  int htl;
+  unsigned char *image_data = stbi_load(filename, &wdl, &htl, NULL, 0);
+  printf("_thumbnails_map_get_size %p wd %d ht %d\n", image_data, wdl, htl);
+  if (image_data == NULL)
+  {
+    fprintf(stderr, "[map] %s: can't open file!\n", filename);
+    return 1;
+  }
+  *wd = wdl;
+  *ht = htl;
+  stbi_image_free(image_data);
+  return 0;
+}
+
+static int _thumbnails_map_read(const char *filename, void *mapped)
+{
+  int wd;
+  int ht;
+  unsigned char *image_data = stbi_load(filename, &wd, &ht, NULL, 4);
+  printf("_thumbnails_map_read %p wd %d ht %d\n", image_data, wd, ht);
+  if (image_data == NULL)
+  {
+    fprintf(stderr, "[map] %s: can't open file!\n", filename);
+    return 1;
+  }
+  memcpy(mapped, image_data, sizeof(uint8_t)*4*wd*ht);
+  stbi_image_free(image_data);
+  return 0;
+}
+
+VkResult ap_map_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index)
+{
+  struct stat statbuf = {0};
+  if(stat(filename, &statbuf)) return VK_INCOMPLETE;
+
+  dt_thumbnail_t *th = dt_thumbnails_allocate(tn, thumb_index);
+
+  if(_thumbnails_map_get_size(filename, &th->wd, &th->ht))
+    return VK_INCOMPLETE;
+
+  return dt_thumbnails_load_one(tn, th, filename, _thumbnails_map_read);
+}
+
+int ap_map_request_tile(uint32_t index)
+{
+  ap_tile_t *tile = &d.map->tiles[index];
+  if(tile->thumb_status == s_thumb_loaded)
+    return 0;
+  else if(tile->thumb_status != s_thumb_dead)
+  { // not loaded
+    char path[512] = {0};
+    snprintf(path, sizeof(path), "%s/%s.png", d.map->thumbs.cachedir, dt_token_str(tile->zxy));
+    tile->thumbnail = -1u;
+    if(ap_map_load_one(&d.map->thumbs, path, &tile->thumbnail))
+      tile->thumbnail = 0;
+    else
+      tile->thumb_status = s_thumb_loaded;
+  }
+  if(tile->thumb_status == s_thumb_unavailable)
+  {
+    char dir[512];
+    snprintf(dir, sizeof(dir), "%s/%s", d.map->thumbs.cachedir, dt_token_str(tile->zxy));
+    dir[strlen(dir)-3] = dir[strlen(dir)-3] = '\0';
+    mkdir(dir, 0755);
+    dir[strlen(dir)] = '/';
+    mkdir(dir, 0755);
+    tile->thumb_status = s_thumb_downloading;
+    uint32_t i = index;
+    printf("request tile %d %s\n", i, dt_token_str(tile->zxy));
+    if(ap_fifo_push(&d.map->thumbs.cache_req, &i) != 0)
+      tile->thumb_status = s_thumb_unavailable;
+  }
+  return 0;
+}
+
 typedef struct map_job_t
 {
   int taskid;
 } map_job_t;
-
-int ap_map_request_tile(uint32_t index)
-{
-  int res = 0;/*
-  if(d.img.images[index].thumbnail == 0)
-  {
-    if(!d.img.images[index].thumb_coming)
-    {
-      d.img.images[index].thumb_coming = 1;
-      res = ap_fifo_push(&d.thumbs.img_th, &index);
-      if(res)
-        d.img.images[index].thumb_coming = 0;
-    }
-  }
-  else
-    d.img.images[index].thumb_coming = 0; */
-  return res;
-}
 
 void map_work(uint32_t item, void *arg)
 {
   struct timespec ts;
   ts.tv_sec = 0;
   ts.tv_nsec = 10000;
-printf("map work started\n");
+
+  CURL* curl = curl_easy_init();
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_write_cb);
+  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+  curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT);
+  curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
+  printf("map work started\n");
   while(1)
   {
     if(d.map->thumbs.cache_req_abort)
@@ -275,7 +314,43 @@ printf("map work started\n");
     int res = ap_fifo_pop(&d.map->thumbs.cache_req, &index);
     if(!res)
     {
-      printf("map work got tile to load\n");
+      ap_tile_t *tile = &d.map->tiles[index];
+      printf("job start tile %s\n", dt_token_str(tile->zxy));
+      char url[256];
+      char path[512];
+      snprintf(url, sizeof(url), TILE_SERVER, dt_token_str(tile->zxy));
+      printf("url %s\n", url);
+      snprintf(path, sizeof(path), "%s/%s.png", d.map->thumbs.cachedir, dt_token_str(tile->zxy));
+      double beg = dt_time();
+
+      FILE *fp = fopen(path, "wb");
+      if(fp)
+      {
+        curl_easy_setopt(curl, CURLOPT_URL, url);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, fp);
+        CURLcode cc = curl_easy_perform(curl);
+        fclose(fp);
+        if (cc != CURLE_OK)
+        {
+          dt_log(s_log_map|s_log_err, "[map] failed to load tile %s", url);
+          long rc = 0;
+          curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &rc);
+          if (!((rc == 200 || rc == 201) && rc != CURLE_ABORTED_BY_CALLBACK))
+            dt_log(s_log_map|s_log_err, "[map] response code %s", rc);
+          tile->thumb_status = s_thumb_dead;
+        }
+        else
+        {
+          tile->thumb_status = s_thumb_ondisk;
+          double end = dt_time();
+          dt_log(s_log_perf, "[map] tile created in %3.0fms", 1000.0*(end-beg));
+        }
+      }
+      else
+      {
+        dt_log(s_log_map|s_log_err, "[map] failed to open or create tile %s", path);
+        tile->thumb_status = s_thumb_dead;
+      }
     }
   }
 }
@@ -292,10 +367,11 @@ void ap_map_reset_tile()
   ap_fifo_empty(&d.map->thumbs.cache_req);
 }
 
-void ap_map_tiles_cleanup()
+void ap_map_cleanup()
 {
   d.map->thumbs.cache_req_abort = 1;
   ap_fifo_clean(&d.map->thumbs.cache_req);
+  free(d.map);
 }
 
 void ap_map_tiles_init()
@@ -303,9 +379,9 @@ void ap_map_tiles_init()
   d.map = (ap_map_t *)malloc(sizeof(ap_map_t));
   memset(d.map, 0, sizeof(*d.map));
 
-  VkResult res = dt_thumbnails_init(&d.map->thumbs, TILE_SIZE, TILE_SIZE, 500, 1ul<<29, "apdt-tiles", VK_FORMAT_R8_UNORM);
+  dt_thumbnails_init(&d.map->thumbs, TILE_SIZE, TILE_SIZE, 500, 1ul<<29, "apdt-tiles", VK_FORMAT_R8G8B8A8_UNORM);
 
-  d.map->tiles_max = 100;
+  d.map->tiles_max = 500;
   // init tiles collection
   d.map->tiles = malloc(sizeof(ap_tile_t)*d.map->tiles_max);
   memset(d.map->tiles, 0, sizeof(ap_tile_t)*d.map->tiles_max);
@@ -320,7 +396,11 @@ void ap_map_tiles_init()
     d.map->tiles[k].prev = d.map->tiles+k-1;
   }
 
-  ap_fifo_init(&d.map->thumbs.cache_req, sizeof(uint64_t), 30);
+  d.map->region_max = 100;
+  d.map->region_cnt = 0;
+  d.map->region = (uint32_t *)malloc(sizeof(uint32_t)*d.map->region_max);
+
+  ap_fifo_init(&d.map->thumbs.cache_req, sizeof(uint32_t), 30);
   d.map->thumbs.cache_req_abort = 0;
   ap_map_start_tile_job();
 }

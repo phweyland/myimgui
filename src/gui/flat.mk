@@ -29,9 +29,9 @@ GUI_H=gui/gui.h\
 			core/threads.h\
       core/fs.h\
 			core/vk.h\
-			core/log.h
-GUI_CFLAGS=$(MYAP_GLFW_CFLAGS) -I../ext/imgui -I../ext/imgui/backends/
-GUI_LDFLAGS=-ldl $(MYAP_GLFW_LDFLAGS) -lm -lstdc++
-
+			core/log.h\
+			core/queue.h
+GUI_CFLAGS=$(MYAP_GLFW_CFLAGS) -I../ext/imgui -I../ext/imgui/backends/ $(shell pkg-config --cflags libcurl) $(shell pkg-config --cflags libcurl)
+GUI_LDFLAGS=-ldl $(MYAP_GLFW_LDFLAGS) -lm -lstdc++ $(shell pkg-config --libs libcurl) $(shell pkg-config --libs libcurl)
 
 #main.o:core/signal.h

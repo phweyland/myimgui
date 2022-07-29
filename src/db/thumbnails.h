@@ -83,7 +83,9 @@ VkResult dt_thumbnails_init(
 void dt_thumbnails_cleanup(dt_thumbnails_t *tn);
 
 // load one image thumb
-VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index);
+VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, dt_thumbnail_t *th, const char *imgfilename, VkResult _thumbnails_read());
+dt_thumbnail_t *dt_thumbnails_allocate(dt_thumbnails_t *tn, uint32_t *index);
+void dt_thumbnails_move_to_mru(dt_thumbnails_t *tn, const uint32_t index);
 
 // init images thumbnails cache
 VkResult dt_thumbnails_vkdt_init();

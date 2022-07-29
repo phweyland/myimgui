@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
   // Cleanup
   ap_gui_cleanup_imgui();
   dt_thumbnails_cleanup(&d.thumbs);
-  ap_map_tiles_cleanup();
+  ap_map_cleanup();
   ap_gui_cleanup_vulkan();
   ap_gui_cleanup();
   threads_shutdown();

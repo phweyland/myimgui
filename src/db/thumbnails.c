@@ -181,7 +181,7 @@ void dt_thumbnails_cleanup(dt_thumbnails_t *tn)
   ap_fifo_clean(&tn->cache_req);
 }
 
-inline static void _thumbnails_move_to_mru(dt_thumbnails_t *tn, const uint32_t index)
+void dt_thumbnails_move_to_mru(dt_thumbnails_t *tn, const uint32_t index)
 {
   dt_thumbnail_t *th = tn->thumb + index;
   if(th == tn->lru) tn->lru = tn->lru->next; // move head
@@ -191,7 +191,7 @@ inline static void _thumbnails_move_to_mru(dt_thumbnails_t *tn, const uint32_t i
   tn->mru = DLIST_APPEND(tn->mru, th);       // append to end and move tail
 }
 
-inline static dt_thumbnail_t *_thumbnails_allocate(dt_thumbnails_t *tn, uint32_t *index)
+dt_thumbnail_t *dt_thumbnails_allocate(dt_thumbnails_t *tn, uint32_t *index)
 {
   dt_thumbnail_t *th = NULL;
   if(*index == -1u)
@@ -209,7 +209,7 @@ inline static dt_thumbnail_t *_thumbnails_allocate(dt_thumbnails_t *tn, uint32_t
 
 // load a previously cached thumbnail to a VkImage onto the GPU.
 // returns VK_SUCCESS on success
-VkResult _thumbnails_load_one(dt_thumbnails_t *tn, dt_thumbnail_t *th, const char *imgfilename, VkResult _thumbnails_read())
+VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, dt_thumbnail_t *th, const char *imgfilename, VkResult _thumbnails_read())
 {
   VkResult err;
   // cache eviction:
@@ -432,7 +432,7 @@ void dt_thumbnails_vkdt_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t en
 
     if(img->thumb_status == s_thumb_loaded)// && img->thumbnail > 1 && img->thumbnail < tn->thumb_max)
     { // loaded, update lru/mru
-      _thumbnails_move_to_mru(tn, img->thumbnail);
+      dt_thumbnails_move_to_mru(tn, img->thumbnail);
     }
     else if(img->thumb_status != s_thumb_dead)
     { // not loaded
@@ -517,12 +517,12 @@ VkResult dt_thumbnails_vkdt_load_one(dt_thumbnails_t *tn, const char *filename, 
   struct stat statbuf = {0};
   if(stat(imgfilename, &statbuf)) return VK_INCOMPLETE;
 
-  dt_thumbnail_t *th = _thumbnails_allocate(tn, thumb_index);
+  dt_thumbnail_t *th = dt_thumbnails_allocate(tn, thumb_index);
 
   if(_thumbnails_vkdt_get_size(imgfilename, &th->wd, &th->ht))
     return VK_INCOMPLETE;
 
-  return _thumbnails_load_one(tn, th, imgfilename, _thumbnails_vkdt_read);
+  return dt_thumbnails_load_one(tn, th, imgfilename, _thumbnails_vkdt_read);
 }
 
 VkResult dt_thumbnails_vkdt_init()
