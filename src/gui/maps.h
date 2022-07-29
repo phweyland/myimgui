@@ -20,17 +20,9 @@ typedef struct ap_tile_t
   int z; // zoom    [0......20]
   int x; // x index [0......z] z+1 values
   int y; // y index [0......z] z+1 values (z+1)^2 combinations
-  uint64_t zxy; //token - 8 chars
-  int zero; // mandatory, '\0' end of string
+  uint64_t zxy[2]; 
   struct ap_tile_t *prev;    // dlist for lru cache
   struct ap_tile_t *next;
-//  char subdir[150];
-//  char dir[150];
-//  char file[50];
-//  char path[200];
-//  char url[200];
-//  char label[50];
-//  struct ap_map_bounds_t b;
   uint32_t thumbnail;
   int thumb_status;
 } ap_tile_t;

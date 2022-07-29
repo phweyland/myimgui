@@ -11,6 +11,12 @@
 #include <curl/curl.h>
 #include <sys/stat.h>
 
+typedef struct ap_map_tile_job_t
+{
+  uint32_t index;
+  uint64_t zxy[2];
+  } ap_map_tile_job_t;
+
 int ap_map_request_tile(const uint32_t index);
 
 inline static double _win2map_x(const double wx)
@@ -33,25 +39,12 @@ size_t curl_write_cb(void *ptr, size_t size, size_t nmemb, void *userdata) {
   return written;
 }
 
-static int count = 1;
-inline static ap_tile_t *_tile_allocate(ap_map_t *tl, const uint64_t zxy, uint32_t *index)
+inline static ap_tile_t *_tile_allocate(ap_map_t *tl, const uint64_t *zxy, uint32_t *index)
 {
-//  if(count < 25)
-//  {
-/*    for(int i = 0; i < d.map->tiles_max; i++)
-    {
-      printf("%s%02ld %s%02ld : %s\n", d.map->tiles[i].prev == 0 ? " " : "p", d.map->tiles[i].prev == 0 ? 0 : d.map->tiles[i].prev - d.map->tiles,
-                              d.map->tiles[i].next == 0 ? " " : "p", d.map->tiles[i].next == 0 ? 0 : d.map->tiles[i].next - d.map->tiles,
-                              dt_token_str(d.map->tiles[i].zxy));
-    }
-    printf("lru %02ld mru %02ld\n", d.map->lru - d.map->tiles, d.map->mru - d.map->tiles);
-    printf("count %d\n", count);*/
-//  }
-
   ap_tile_t *ti = NULL;
   for(ti = tl->mru; ti->prev != NULL; ti = ti->prev)
   {
-    if(ti->zxy == zxy)
+    if(ti->zxy[0] == zxy[0] && ti->zxy[1] == zxy[1])
     {
       *index = ti - tl->tiles;
       if(ti == tl->lru) tl->lru = tl->lru->next; // move head
@@ -61,22 +54,19 @@ inline static ap_tile_t *_tile_allocate(ap_map_t *tl, const uint64_t zxy, uint32
       tl->mru = DLIST_APPEND(tl->mru, ti);       // append to end and move tail
       return ti;
     }
-    else if(ti->prev == tl->mru || ti->zxy == 0)
+    else if(ti->prev == tl->mru || ti->zxy[0] == 0)
       break;
   }
-  if(*index == -1u)
-  { // allocate tile from lru list
-    ti = tl->lru;
-    tl->lru = tl->lru->next;             // move head
-    if(tl->mru == ti) tl->mru = ti->prev;// going to remove mru, need to move
-    DLIST_RM_ELEMENT(ti);                // disconnect old head
-    tl->mru = DLIST_APPEND(tl->mru, ti); // append to end and move tail
-    ti->zxy = zxy;
-    ti->thumb_status = s_thumb_unavailable;
-    *index = ti - tl->tiles;
-  }
-  else ti = tl->tiles + *index;
-  count++;
+  // allocate tile from lru list
+  ti = tl->lru;
+  tl->lru = tl->lru->next;             // move head
+  if(tl->mru == ti) tl->mru = ti->prev;// going to remove mru, need to move
+  DLIST_RM_ELEMENT(ti);                // disconnect old head
+  tl->mru = DLIST_APPEND(tl->mru, ti); // append to end and move tail
+  ti->zxy[0] = zxy[0];
+  ti->zxy[1] = zxy[1];
+  ti->thumb_status = s_thumb_unavailable;
+  *index = ti - tl->tiles;
   return ti;
 }
 
@@ -92,18 +82,18 @@ static int _append_region(int z, double min_x, double max_x, double min_y, doubl
   xb = CLAMP(xb,0,k);
   yb = CLAMP(yb,0,k);
   int covered = 1;
-//  printf("mx %lf Mx %lf my %lf My %lf- k %d xa %d xb %d ya %d yb %d\n",
-//        min_x,  max_x, min_y,  max_y , k, xa, xb, ya, yb);
 
   for(int y = ya; y < yb; ++y)
   {
     for(int x = xa; x < xb; ++x)
     {
-      char text[10];
-      snprintf(text, sizeof(text),"%02d/%02d/%02d", z, x, y);
-      uint64_t zxy = dt_token(text);
+      char text[20];
+      snprintf(text, sizeof(text),"%d/%d/%d", z, x, y);
       uint32_t index = -1u;
-      ap_tile_t *tile = _tile_allocate(d.map, zxy, &index);
+      uint64_t zxy[2];
+      zxy[0] = dt_token(text);
+      zxy[1] = dt_token(text+8);
+      ap_tile_t *tile = _tile_allocate(d.map, &zxy[0], &index);
       ap_map_request_tile(index);
       tile->x = x;
       tile->y = y;
@@ -112,13 +102,10 @@ static int _append_region(int z, double min_x, double max_x, double min_y, doubl
         d.map->region[d.map->region_cnt++] = index;
       else
         dt_log(s_log_map|s_log_err, "[map] tiles list too short");
-//      printf("%02d/%02d/%02d ", z, x, y);
       if(tile->thumb_status != s_thumb_loaded)
         covered = 0;
     }
-//    printf("\n");
   }
-//printf("tiles lru %d mru %d\n", d.map->lru - d.map->tiles, d.map->mru - d.map->tiles);
 
   return covered;
 }
@@ -175,7 +162,6 @@ void map_mouse_scrolled(GLFWwindow* window, double xoff, double yoff)
     d.map->yM = my + rate * (d.map->yM - my);
     d.map->wd = d.map->xM - d.map->xm;
     d.map->pixel_size = d.map->wd / (double)d.center_wd;
-//    printf("rate %lf mx %lf my %lf\n", rate, mx, my);
   }
 }
 
@@ -192,12 +178,10 @@ void map_mouse_button(GLFWwindow* window, int button, int action, int mods)
   }
   else if(action == GLFW_RELEASE)
     d.map->drag = 0;
-//  printf("map mouse button %lf %lf\n", x, y);
 }
 
 void map_mouse_position(GLFWwindow* window, double x, double y)
 {
-//  printf("map mouse posl %lf %lf\n", x, y);
   if(d.map->drag)
   {
     const double dx = (d.map->prevx - x) * d.map->wd / (double)d.center_wd;
@@ -206,7 +190,6 @@ void map_mouse_position(GLFWwindow* window, double x, double y)
     d.map->ym += dy; d.map->yM += dy;
     d.map->prevx = x;
     d.map->prevy = y;
-//    printf("x %lf,%lf y %lf,%lf\n", d.map->xm, d.map->xM, d.map->ym, d.map->yM);
   }
 }
 
@@ -215,7 +198,6 @@ static int _thumbnails_map_get_size(const char *filename, uint32_t *wd, uint32_t
   int wdl;
   int htl;
   unsigned char *image_data = stbi_load(filename, &wdl, &htl, NULL, 0);
-  printf("_thumbnails_map_get_size %p wd %d ht %d\n", image_data, wdl, htl);
   if (image_data == NULL)
   {
     fprintf(stderr, "[map] %s: can't open file!\n", filename);
@@ -232,7 +214,6 @@ static int _thumbnails_map_read(const char *filename, void *mapped)
   int wd;
   int ht;
   unsigned char *image_data = stbi_load(filename, &wd, &ht, NULL, 4);
-  printf("_thumbnails_map_read %p wd %d ht %d\n", image_data, wd, ht);
   if (image_data == NULL)
   {
     fprintf(stderr, "[map] %s: can't open file!\n", filename);
@@ -245,11 +226,7 @@ static int _thumbnails_map_read(const char *filename, void *mapped)
 
 VkResult ap_map_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *thumb_index)
 {
-  struct stat statbuf = {0};
-  if(stat(filename, &statbuf)) return VK_INCOMPLETE;
-
   dt_thumbnail_t *th = dt_thumbnails_allocate(tn, thumb_index);
-
   if(_thumbnails_map_get_size(filename, &th->wd, &th->ht))
     return VK_INCOMPLETE;
 
@@ -265,24 +242,39 @@ int ap_map_request_tile(uint32_t index)
   { // not loaded
     char path[512] = {0};
     snprintf(path, sizeof(path), "%s/%s.png", d.map->thumbs.cachedir, dt_token_str(tile->zxy));
-    tile->thumbnail = -1u;
-    if(ap_map_load_one(&d.map->thumbs, path, &tile->thumbnail))
-      tile->thumbnail = 0;
-    else
-      tile->thumb_status = s_thumb_loaded;
+    struct stat statbuf = {0};
+    if(!stat(path, &statbuf))
+    {
+      tile->thumbnail = -1u;
+      if(ap_map_load_one(&d.map->thumbs, path, &tile->thumbnail))
+        tile->thumbnail = 0;
+      else
+        tile->thumb_status = s_thumb_loaded;
+    }
   }
   if(tile->thumb_status == s_thumb_unavailable)
   {
     char dir[512];
-    snprintf(dir, sizeof(dir), "%s/%s", d.map->thumbs.cachedir, dt_token_str(tile->zxy));
-    dir[strlen(dir)-3] = dir[strlen(dir)-3] = '\0';
+    uint64_t zxy[2];
+    zxy[0] = tile->zxy[0];
+    zxy[1] = tile->zxy[1];
+    char *ps = (char *)zxy;
+    char *pe = strstr(ps, "/");
+    pe[0] = '\0';
+    snprintf(dir, sizeof(dir), "%s/%s", d.map->thumbs.cachedir, ps);
     mkdir(dir, 0755);
-    dir[strlen(dir)] = '/';
+    ps = pe + 1;
+    pe = strstr(ps, "/");
+    pe[0] = '\0';
+    snprintf(&dir[strlen(dir)], sizeof(dir) - strlen(dir), "/%s", ps);
     mkdir(dir, 0755);
+
     tile->thumb_status = s_thumb_downloading;
-    uint32_t i = index;
-    printf("request tile %d %s\n", i, dt_token_str(tile->zxy));
-    if(ap_fifo_push(&d.map->thumbs.cache_req, &i) != 0)
+    ap_map_tile_job_t job;
+    job.index = index;
+    job.zxy[0] = tile->zxy[0];
+    job.zxy[1] = tile->zxy[1];
+    if(ap_fifo_push(&d.map->thumbs.cache_req, &job) != 0)
       tile->thumb_status = s_thumb_unavailable;
   }
   return 0;
@@ -304,23 +296,21 @@ void map_work(uint32_t item, void *arg)
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
   curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT);
   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
-  printf("map work started\n");
+
   while(1)
   {
     if(d.map->thumbs.cache_req_abort)
       return;
     nanosleep(&ts, NULL);
-    uint32_t index;
-    int res = ap_fifo_pop(&d.map->thumbs.cache_req, &index);
+    ap_map_tile_job_t job;
+    int res = ap_fifo_pop(&d.map->thumbs.cache_req, &job);
     if(!res)
     {
-      ap_tile_t *tile = &d.map->tiles[index];
-      printf("job start tile %s\n", dt_token_str(tile->zxy));
+      ap_tile_t *tile = &d.map->tiles[job.index];
       char url[256];
       char path[512];
-      snprintf(url, sizeof(url), TILE_SERVER, dt_token_str(tile->zxy));
-      printf("url %s\n", url);
-      snprintf(path, sizeof(path), "%s/%s.png", d.map->thumbs.cachedir, dt_token_str(tile->zxy));
+      snprintf(url, sizeof(url), TILE_SERVER, dt_token_str(job.zxy));
+      snprintf(path, sizeof(path), "%s/%s.png", d.map->thumbs.cachedir, dt_token_str(job.zxy));
       double beg = dt_time();
 
       FILE *fp = fopen(path, "wb");
@@ -337,11 +327,13 @@ void map_work(uint32_t item, void *arg)
           curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &rc);
           if (!((rc == 200 || rc == 201) && rc != CURLE_ABORTED_BY_CALLBACK))
             dt_log(s_log_map|s_log_err, "[map] response code %s", rc);
-          tile->thumb_status = s_thumb_dead;
+          if(job.zxy[0] == tile->zxy[0] && job.zxy[1] == tile->zxy[1])
+            tile->thumb_status = s_thumb_dead;
         }
         else
         {
-          tile->thumb_status = s_thumb_ondisk;
+          if(job.zxy[0] == tile->zxy[0] && job.zxy[1] == tile->zxy[1])
+            tile->thumb_status = s_thumb_ondisk;
           double end = dt_time();
           dt_log(s_log_perf, "[map] tile created in %3.0fms", 1000.0*(end-beg));
         }
@@ -396,11 +388,12 @@ void ap_map_tiles_init()
     d.map->tiles[k].prev = d.map->tiles+k-1;
   }
 
-  d.map->region_max = 100;
+  d.map->region_max = 500;
   d.map->region_cnt = 0;
   d.map->region = (uint32_t *)malloc(sizeof(uint32_t)*d.map->region_max);
 
-  ap_fifo_init(&d.map->thumbs.cache_req, sizeof(uint32_t), 30);
+  // job stuff
+  ap_fifo_init(&d.map->thumbs.cache_req, sizeof(ap_map_tile_job_t), 30);
   d.map->thumbs.cache_req_abort = 0;
   ap_map_start_tile_job();
 }

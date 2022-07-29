@@ -78,7 +78,7 @@ void render_map()
 //    printf("pos %f %f size %f %f limits xm   xM   ym   yM  \n", (float)d.center_x, (float)d.center_y, (float)d.center_wd, (float)d.center_ht);
     if(d.debug)
     {
-      ImGui::Text("x %lf,%lf y %lf,%lf wd %lf k %d   x %lf y %lf ps %lf", d.map->xm, d.map->xM, d.map->ym, d.map->yM, d.map->wd, d.map->z, x, y, d.map->pixel_size);
+      ImGui::Text("m %lf,%lf M %lf,%lf wd %lf k %d   x %lf y %lf ps %lf", d.map->xm, d.map->ym, d.map->xM, d.map->yM, d.map->wd, d.map->z, x, y, d.map->pixel_size);
     }
 
     ImGui::End(); // end center lighttable
