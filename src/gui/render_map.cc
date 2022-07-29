@@ -75,17 +75,23 @@ void render_map()
 
 extern "C" int map_leave()
 {
+  dt_rc_set_float(&d.rc, "map_region_xm", d.map->xm);
+  dt_rc_set_float(&d.rc, "map_region_ym", d.map->ym);
+  dt_rc_set_float(&d.rc, "map_region_wd", d.map->wd);
   return 0;
 }
 
 extern "C" int map_enter()
 {
-  d.map->xm = 0.0;
-  d.map->wd = 1.0;
+  printf("0 %lf %lf %lf %lf\n", d.map->xm, d.map->ym, d.map->xM, d.map->yM);
+  d.map->xm = dt_rc_get_float(&d.rc, "map_region_xm", 0.0);
+  d.map->ym = dt_rc_get_float(&d.rc, "map_region_ym", 10.0);  // 10.0 shouldn't not happen in real life
+  d.map->wd = dt_rc_get_float(&d.rc, "map_region_wd", 1.0);
   d.map->xM = d.map->xm + d.map->wd;
-  double ym = (double)d.center_ht / (double)d.center_wd * d.map->wd * 0.5;
-  d.map->ym = 0.5 - ym;
-  d.map->yM = 0.5 + ym;
+  double ht = (double)d.center_ht / (double)d.center_wd * d.map->wd;
+  if(d.map->ym == 10.0)
+    d.map->ym = 0.5 - 0.5 * ht;
+  d.map->yM = d.map->ym + ht;
   d.map->pixel_size = d.map->wd / (double)d.center_wd;
   d.map->drag = 0;
   return 0;
