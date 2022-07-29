@@ -1,4 +1,5 @@
 #include "gui/maps.h"
+#include "gui/render.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "../ext/stb_image.h"
 #include "core/log.h"
@@ -158,6 +159,7 @@ void map_mouse_scrolled(GLFWwindow* window, double xoff, double yoff)
     d.map->wd = d.map->xM - d.map->xm;
     d.map->pixel_size = d.map->wd / (double)d.center_wd;
   }
+  dt_gui_imgui_scrolled(window, xoff, yoff);
 }
 
 void map_mouse_button(GLFWwindow* window, int button, int action, int mods)
@@ -173,6 +175,7 @@ void map_mouse_button(GLFWwindow* window, int button, int action, int mods)
   }
   else if(action == GLFW_RELEASE)
     d.map->drag = 0;
+  dt_gui_imgui_mouse_button(window, button, action, mods);
 }
 
 void map_mouse_position(GLFWwindow* window, double x, double y)
@@ -186,6 +189,7 @@ void map_mouse_position(GLFWwindow* window, double x, double y)
     d.map->prevx = x;
     d.map->prevy = y;
   }
+  dt_gui_imgui_mouse_position(window, x, y);
 }
 
 static int _thumbnails_map_get_size(const char *filename, uint32_t *wd, uint32_t *ht)

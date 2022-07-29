@@ -39,6 +39,7 @@ typedef struct ap_map_t
 
   int z;
   int drag;
+  int source;
 
   // tiles vulkan images queue
   dt_thumbnails_t thumbs;

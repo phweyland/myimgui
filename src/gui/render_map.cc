@@ -12,6 +12,14 @@ extern "C" {
 #include "core/token.h"
 }
 
+const char *map_source[] = {
+  "OpenStreetMap",
+  "GoogleMap",
+  "GoogleSatellite",
+  "GoogleHybrid",
+  NULL
+};
+
 void render_map()
 {
   // right panel
@@ -19,6 +27,28 @@ void render_map()
     ImGui::SetNextWindowPos(ImVec2(d.win_width - d.panel_wd, 0), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(d.panel_wd, d.panel_ht), ImGuiCond_Always);
     ImGui::Begin("RightPanel", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
+
+    if(ImGui::CollapsingHeader("Preferences"))
+    {
+      const char* combo_preview_value = map_source[d.map->source];
+      if (ImGui::BeginCombo("source", combo_preview_value, 0))
+      {
+        for (int n = 0; map_source[n]; n++)
+        {
+          const bool is_selected = (d.map->source == n);
+          if (ImGui::Selectable(map_source[n], is_selected))
+          {
+            d.map->source = n;
+//            themes_set[n]();
+            dt_rc_set_int(&d.rc, "map_source", n);
+          }
+          // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
+          if (is_selected)
+            ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+      }
+    }
 
 
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -94,5 +124,7 @@ extern "C" int map_enter()
   d.map->yM = d.map->ym + ht;
   d.map->pixel_size = d.map->wd / (double)d.center_wd;
   d.map->drag = 0;
+
+  d.map->source = dt_rc_get_int(&d.rc, "map_source", 0);
   return 0;
 }
