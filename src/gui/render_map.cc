@@ -41,12 +41,6 @@ void render_map()
     ImGui::SetNextWindowSize(ImVec2(d.center_wd, d.center_ht), ImGuiCond_Always);
     ImGui::Begin("Map", 0, window_flags);
     ImGuiWindow* window = ImGui::GetCurrentWindow();
-  //  const float rat = (float)d.center_ht / (float)d.center_wd;
-
-//    d.map->lxmin = d.map->cx - 0.5f * d.map->wd;
-//    d.map->lxmax = d.map->cx + 0.5f * d.map->wd;
-//    d.map->lymin = d.map->cy - 0.5f * d.map->wd * rat;
-//    d.map->lymax = d.map->cy + 0.5f * d.map->wd * rat;
 
     ap_map_get_region();
     // map origin on window
@@ -64,21 +58,15 @@ void render_map()
         b.xM = b.xm + tile_size;
         b.yM = b.ym + tile_size;
         int tid = tile->thumbnail;
-  //      printf("tile %s status %d thumb %d min %lf,%lf max %lf,%lf\n", dt_token_str(tile->zxy), tile->thumb_status, tid, b.xm, b.ym, b.xM, b.yM);
         const ImU32 col = ImGui::GetColorU32(d.debug ? ((tile->x % 2 == 0 && tile->y % 2 != 0) || (tile->x % 2 != 0 && tile->y % 2 == 0)) ? ImVec4(1,0,1,1) : ImVec4(1,1,0,1) : ImVec4(1,1,1,1));
         window->DrawList->AddImage(d.map->thumbs.thumb[tid].dset, ImVec2(b.xm, b.ym), ImVec2(b.xM, b.yM), {0,0}, {1,1}, col);
         if(d.debug)
-          window->DrawList->AddText(0, 0.0f, ImVec2((b.xm+b.xM)*0.5, (b.ym+b.yM)*0.5), 0xff111111u, dt_token_str(tile->zxy));
+          window->DrawList->AddText(0, 0.0f, ImVec2(b.xm, (b.ym+b.yM)*0.5), 0xff111111u, dt_token_str(tile->zxy));
       }
     }
-//    printf("pos %f %f size %f %f limits xm %f xM %f ym %f yM %f\n", (float)d.center_x, (float)d.center_y, (float)d.center_wd, (float)d.center_ht,
-//              d.map->lxmin, d.map->lxmax, d.map->lymin, d.map->lymax);
-
-//    printf("pos %f %f size %f %f limits xm %f xM %f ym %f yM %f\n", pos.x, pos.y, size.x, size.y, limits.X.Min, limits.X.Max, limits.Y.Min, limits.Y.Max);
-//    printf("pos %f %f size %f %f limits xm   xM   ym   yM  \n", (float)d.center_x, (float)d.center_y, (float)d.center_wd, (float)d.center_ht);
     if(d.debug)
     {
-      ImGui::Text("m %lf,%lf M %lf,%lf wd %lf k %d   x %lf y %lf ps %lf", d.map->xm, d.map->ym, d.map->xM, d.map->yM, d.map->wd, d.map->z, x, y, d.map->pixel_size);
+      ImGui::Text("m %lf,%lf wd %lf z %d ps %lf", d.map->xm, d.map->ym, d.map->wd, d.map->z, d.map->pixel_size);
     }
 
     ImGui::End(); // end center lighttable
@@ -100,6 +88,5 @@ extern "C" int map_enter()
   d.map->yM = 0.5 + ym;
   d.map->pixel_size = d.map->wd / (double)d.center_wd;
   d.map->drag = 0;
-  printf("xm %lf xM %lf ym %lf yM %lf wd %lf ps %lf\n", d.map->xm, d.map->xM, d.map->ym, d.map->yM, d.map->wd, d.map->pixel_size);
   return 0;
 }

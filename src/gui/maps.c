@@ -121,16 +121,11 @@ void ap_map_get_region()
 
   double max_tile_size = d.map->wd * ((double)TILE_SIZE / (double)d.center_wd);
   int z = 0;
-//  double r = 1.0 / pow(2,z);
   double r = 1.0 / (double)(1<<z);
   while (r > max_tile_size && z < MAX_ZOOM)
-//    r = 1.0 / pow(2,++z);
     r = 1.0 / (double)(1<<++z);
-  // r = tile size on the map (0,1)
-
 
   d.map->region_cnt = 0;
-//    _append_region(z, min_x, max_x, min_y, max_y);
   if(!_append_region(z, min_x, max_x, min_y, max_y) && z > 0)
   {
     _append_region(--z, min_x, max_x, min_y, max_y);
@@ -236,20 +231,23 @@ VkResult ap_map_load_one(dt_thumbnails_t *tn, const char *filename, uint32_t *th
 int ap_map_request_tile(uint32_t index)
 {
   ap_tile_t *tile = &d.map->tiles[index];
-  if(tile->thumb_status == s_thumb_loaded)
+  if(tile->thumb_status == s_thumb_loaded || tile->thumb_status == s_thumb_downloading)
     return 0;
-  else if(tile->thumb_status != s_thumb_dead)
+  else if(tile->thumb_status == s_thumb_unavailable || tile->thumb_status == s_thumb_ondisk)
   { // not loaded
     char path[512] = {0};
     snprintf(path, sizeof(path), "%s/%s.png", d.map->thumbs.cachedir, dt_token_str(tile->zxy));
     struct stat statbuf = {0};
     if(!stat(path, &statbuf))
     {
-      tile->thumbnail = -1u;
+      tile->thumbnail = -1u; // for compatibility with image thumbnails
       if(ap_map_load_one(&d.map->thumbs, path, &tile->thumbnail))
         tile->thumbnail = 0;
       else
+      {
         tile->thumb_status = s_thumb_loaded;
+        return 0;
+      }
     }
   }
   if(tile->thumb_status == s_thumb_unavailable)
@@ -275,7 +273,10 @@ int ap_map_request_tile(uint32_t index)
     job.zxy[0] = tile->zxy[0];
     job.zxy[1] = tile->zxy[1];
     if(ap_fifo_push(&d.map->thumbs.cache_req, &job) != 0)
+    {
       tile->thumb_status = s_thumb_unavailable;
+      return 1;
+    }
   }
   return 0;
 }

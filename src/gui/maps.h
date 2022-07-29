@@ -5,7 +5,7 @@
 
 #define TILE_SERVER   "https://a.tile.openstreetmap.org/%s.png" // the tile map server url
 #define TILE_SIZE     256                                 // the expected size of tiles in pixels, e.g. 256x256px
-#define MAX_ZOOM      19                                  // the maximum zoom level provided by the server
+#define MAX_ZOOM      20                                  // the maximum zoom level provided by the server
 #define MAX_THREADS   2                                   // the maximum threads to use for downloading tiles (OSC strictly forbids more than 2)
 #define USER_AGENT    "myap"                              // change this to represent your own app if you extend this code
 
@@ -20,7 +20,7 @@ typedef struct ap_tile_t
   int z; // zoom    [0......20]
   int x; // x index [0......z] z+1 values
   int y; // y index [0......z] z+1 values (z+1)^2 combinations
-  uint64_t zxy[2]; 
+  uint64_t zxy[2];
   struct ap_tile_t *prev;    // dlist for lru cache
   struct ap_tile_t *next;
   uint32_t thumbnail;
