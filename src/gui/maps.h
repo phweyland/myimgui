@@ -73,5 +73,5 @@ void map_mouse_position(GLFWwindow* window, double x, double y);
 
 void ap_map_get_region();
 
-void dt_map_tiles_init();
+void ap_map_tiles_init();
 void ap_map_cleanup();
