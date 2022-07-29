@@ -37,7 +37,6 @@ typedef struct dt_thumbnail_t
   uint64_t               offset;
   struct dt_thumbnail_t *prev;    // dlist for lru cache
   struct dt_thumbnail_t *next;
-//  uint32_t               imgid;   // index into images->image[] or -1u
   uint32_t               wd;
   uint32_t               ht;
 }
@@ -57,7 +56,7 @@ typedef struct dt_thumbnails_t
   dt_thumbnail_t       *thumb;
   int                   thumb_max;
 
-  // threads_mutex_t       lru_lock; // currently not needed, only using lru cache in gui thread
+  threads_mutex_t       lru_lock;
   dt_thumbnail_t       *lru;   // least recently used thumbnail, delete this first
   dt_thumbnail_t       *mru;   // most  recently used thumbnail, append here
 
@@ -66,6 +65,7 @@ typedef struct dt_thumbnails_t
   // cache request queue
   ap_fifo_t cache_req;
   int cache_req_abort;
+  threads_mutex_t       req_lock;
 }
 dt_thumbnails_t;
 

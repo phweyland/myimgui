@@ -281,11 +281,6 @@ int ap_map_request_tile(uint32_t index)
   return 0;
 }
 
-typedef struct map_job_t
-{
-  int taskid;
-} map_job_t;
-
 void map_work(uint32_t item, void *arg)
 {
   struct timespec ts;
@@ -304,7 +299,9 @@ void map_work(uint32_t item, void *arg)
       return;
     nanosleep(&ts, NULL);
     ap_map_tile_job_t job;
+    threads_mutex_lock(&d.map->thumbs.req_lock);
     int res = ap_fifo_pop(&d.map->thumbs.cache_req, &job);
+    threads_mutex_unlock(&d.map->thumbs.req_lock);
     if(!res)
     {
       ap_tile_t *tile = &d.map->tiles[job.index];
@@ -348,11 +345,38 @@ void map_work(uint32_t item, void *arg)
   }
 }
 
+typedef struct map_job_t
+{
+  uint32_t gid;
+}
+map_job_t;
+
+static void map_free(void *arg)
+{
+  // task is done, every thread will call this
+  map_job_t *j = arg;
+  // only first thread frees
+  if(j->gid == 0)
+  {
+    pthread_mutex_destroy(&d.map->thumbs.req_lock);
+  }
+}
+
 int ap_map_start_tile_job()
 {
-  static map_job_t j;
-  j.taskid = threads_task(1, -1, &j, map_work, NULL);
-  return j.taskid;
+  map_job_t job[MAX_THREADS];
+  int taskid = -1;
+  for(int k=0;k<MAX_THREADS;k++)
+  {
+    if(k == 0)
+    {
+      threads_mutex_init(&d.map->thumbs.req_lock, 0);
+    }
+    job[k].gid = k;
+    taskid = threads_task(1, -1, &job[k], map_work, map_free);
+    assert(taskid != -1); // only -1 is fatal
+  }
+  return 0;
 }
 
 void ap_map_reset_tile()
