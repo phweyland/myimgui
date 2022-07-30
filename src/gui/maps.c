@@ -16,6 +16,7 @@ typedef struct ap_map_tile_job_t
 {
   uint32_t index;
   uint64_t zxy[2];
+  int zero;
   } ap_map_tile_job_t;
 
 int ap_map_request_tile(const uint32_t index);
@@ -105,6 +106,8 @@ static int _append_region(int z, double min_x, double max_x, double min_y, doubl
         dt_log(s_log_map|s_log_err, "[map] tiles list too short");
       if(tile->thumb_status != s_thumb_loaded)
         covered = 0;
+      else
+        d.map->region_cov++;
     }
   }
 
@@ -126,7 +129,7 @@ void ap_map_get_region()
   while (r > max_tile_size && z < MAX_ZOOM)
     r = 1.0 / (double)(1<<++z);
 
-  d.map->region_cnt = 0;
+  d.map->region_cnt = d.map->region_cov = 0;
   if(!_append_region(z, min_x, max_x, min_y, max_y) && z > 0)
   {
     _append_region(--z, min_x, max_x, min_y, max_y);
@@ -199,7 +202,7 @@ static int _thumbnails_map_get_size(const char *filename, uint32_t *wd, uint32_t
   unsigned char *image_data = stbi_load(filename, &wdl, &htl, NULL, 0);
   if (image_data == NULL)
   {
-    fprintf(stderr, "[map] %s: can't open file!\n", filename);
+    fprintf(stderr, "[map] %s: can't open file (size)!\n", filename);
     return 1;
   }
   *wd = wdl;
@@ -215,7 +218,7 @@ static int _thumbnails_map_read(const char *filename, void *mapped)
   unsigned char *image_data = stbi_load(filename, &wd, &ht, NULL, 4);
   if (image_data == NULL)
   {
-    fprintf(stderr, "[map] %s: can't open file!\n", filename);
+    fprintf(stderr, "[map] %s: can't open file (data)!\n", filename);
     return 1;
   }
   memcpy(mapped, image_data, sizeof(uint8_t)*4*wd*ht);
@@ -258,6 +261,7 @@ int ap_map_request_tile(uint32_t index)
   {
     char dir[512];
     uint64_t zxy[2];
+    int zero = 0; // not sure if variables are contiguous...
     zxy[0] = tile->zxy[0];
     zxy[1] = tile->zxy[1];
     char *ps = (char *)zxy;
@@ -276,6 +280,7 @@ int ap_map_request_tile(uint32_t index)
     job.index = index;
     job.zxy[0] = tile->zxy[0];
     job.zxy[1] = tile->zxy[1];
+    job.zero = 0;
     if(ap_fifo_push(&d.map->thumbs.cache_req, &job) != 0)
     {
       tile->thumb_status = s_thumb_unavailable;
@@ -308,12 +313,14 @@ void map_work(uint32_t item, void *arg)
     threads_mutex_unlock(&d.map->thumbs.req_lock);
     if(!res)
     {
+      double beg = dt_time();
       ap_tile_t *tile = &d.map->tiles[job.index];
       char url[256];
       char path[512];
+      char real_path[512];
       snprintf(url, sizeof(url), TILE_SERVER, dt_token_str(job.zxy));
-      snprintf(path, sizeof(path), "%s/%s.png", d.map->thumbs.cachedir, dt_token_str(job.zxy));
-      double beg = dt_time();
+      snprintf(path, sizeof(path), "%s/%s.dld", d.map->thumbs.cachedir, dt_token_str(job.zxy));
+      snprintf(real_path, sizeof(real_path), "%s/%s.png", d.map->thumbs.cachedir, dt_token_str(job.zxy));
 
       FILE *fp = fopen(path, "wb");
       if(fp)
@@ -335,7 +342,10 @@ void map_work(uint32_t item, void *arg)
         else
         {
           if(job.zxy[0] == tile->zxy[0] && job.zxy[1] == tile->zxy[1])
+          {
+            rename(path, real_path);
             tile->thumb_status = s_thumb_ondisk;
+          }
           double end = dt_time();
           dt_log(s_log_perf, "[map] tile created in %3.0fms", 1000.0*(end-beg));
         }
@@ -400,9 +410,8 @@ void ap_map_tiles_init()
   d.map = (ap_map_t *)malloc(sizeof(ap_map_t));
   memset(d.map, 0, sizeof(*d.map));
 
-  dt_thumbnails_init(&d.map->thumbs, TILE_SIZE, TILE_SIZE, 500, 1ul<<29, "apdt-tiles", VK_FORMAT_R8G8B8A8_UNORM);
-
-  d.map->tiles_max = 500;
+  dt_thumbnails_init(&d.map->thumbs, TILE_SIZE, TILE_SIZE, 200, 1ul<<29, "apdt-tiles", VK_FORMAT_R8G8B8A8_UNORM);
+  d.map->tiles_max = 200;
   // init tiles collection
   d.map->tiles = malloc(sizeof(ap_tile_t)*d.map->tiles_max);
   memset(d.map->tiles, 0, sizeof(ap_tile_t)*d.map->tiles_max);
@@ -417,7 +426,7 @@ void ap_map_tiles_init()
     d.map->tiles[k].prev = d.map->tiles+k-1;
   }
 
-  d.map->region_max = 500;
+  d.map->region_max = 200;
   d.map->region_cnt = 0;
   d.map->region = (uint32_t *)malloc(sizeof(uint32_t)*d.map->region_max);
 

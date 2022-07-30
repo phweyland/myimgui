@@ -21,6 +21,7 @@ typedef struct ap_tile_t
   int x; // x index [0......z] z+1 values
   int y; // y index [0......z] z+1 values (z+1)^2 combinations
   uint64_t zxy[2];
+  int zero; // keep a a null character...
   struct ap_tile_t *prev;    // dlist for lru cache
   struct ap_tile_t *next;
   uint32_t thumbnail;
@@ -47,6 +48,7 @@ typedef struct ap_map_t
   // region
   int region_max;
   int region_cnt;
+  int region_cov;
   uint32_t *region;
 
   // tiles collection

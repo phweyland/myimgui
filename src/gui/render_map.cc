@@ -50,8 +50,19 @@ void render_map()
       }
     }
 
+    if(ImGui::CollapsingHeader("Debug"))
+    {
+      ImGui::Text("z: %d", d.map->z);
+      ImGui::Separator();
+      ImGui::Text("Region covered/count: %d/%d / max: %d", d.map->region_cov, d.map->region_cnt, d.map->region_max);
+      ImGui::Text("Tiles lru: %ld mru: %ld / max: %d", d.map->lru - d.map->tiles, d.map->mru - d.map->tiles, d.map->tiles_max);
+      ImGui::Text("Tile req in: %d out: %d / nb: %d", d.map->thumbs.cache_req.in,d.map->thumbs.cache_req.out, d.map->thumbs.cache_req.nb);
+      ImGui::Text("Thumbs lru: %ld mru: %ld / max: %d", d.map->thumbs.lru - d.map->thumbs.thumb, d.map->thumbs.mru - d.map->thumbs.thumb, d.map->thumbs.thumb_max);
+      ImGui::Separator();
+      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    }
+
 
     ImVec2 window_size = ImGui::GetWindowSize();
     if(window_size.x != d.panel_wd)
@@ -87,11 +98,14 @@ void render_map()
         b.ym = y + tile->y * tile_size + (double)d.center_y;
         b.xM = b.xm + tile_size;
         b.yM = b.ym + tile_size;
-        int tid = tile->thumbnail;
-        const ImU32 col = ImGui::GetColorU32(d.debug ? ((tile->x % 2 == 0 && tile->y % 2 != 0) || (tile->x % 2 != 0 && tile->y % 2 == 0)) ? ImVec4(1,0,1,1) : ImVec4(1,1,0,1) : ImVec4(1,1,1,1));
-        window->DrawList->AddImage(d.map->thumbs.thumb[tid].dset, ImVec2(b.xm, b.ym), ImVec2(b.xM, b.yM), {0,0}, {1,1}, col);
-        if(d.debug)
-          window->DrawList->AddText(0, 0.0f, ImVec2(b.xm, (b.ym+b.yM)*0.5), 0xff111111u, dt_token_str(tile->zxy));
+        uint32_t tid = tile->thumbnail;
+        if(tid != -1u)
+        {
+          const ImU32 col = ImGui::GetColorU32(d.debug ? ((tile->x % 2 == 0 && tile->y % 2 != 0) || (tile->x % 2 != 0 && tile->y % 2 == 0)) ? ImVec4(1,0,1,1) : ImVec4(1,1,0,1) : ImVec4(1,1,1,1));
+          window->DrawList->AddImage(d.map->thumbs.thumb[tid].dset, ImVec2(b.xm, b.ym), ImVec2(b.xM, b.yM), {0,0}, {1,1}, col);
+          if(d.debug)
+            window->DrawList->AddText(0, 0.0f, ImVec2(b.xm, (b.ym+b.yM)*0.5), 0xff111111u, dt_token_str(tile->zxy));
+        }
       }
     }
     if(d.debug)
@@ -113,7 +127,6 @@ extern "C" int map_leave()
 
 extern "C" int map_enter()
 {
-  printf("0 %lf %lf %lf %lf\n", d.map->xm, d.map->ym, d.map->xM, d.map->yM);
   d.map->xm = dt_rc_get_float(&d.rc, "map_region_xm", 0.0);
   d.map->ym = dt_rc_get_float(&d.rc, "map_region_ym", 10.0);  // 10.0 shouldn't not happen in real life
   d.map->wd = dt_rc_get_float(&d.rc, "map_region_wd", 1.0);
