@@ -59,7 +59,8 @@ void render_map()
       ImGui::Text("Tile req in: %d out: %d / nb: %d", d.map->thumbs.cache_req.in,d.map->thumbs.cache_req.out, d.map->thumbs.cache_req.nb);
       ImGui::Text("Thumbs lru: %ld mru: %ld / max: %d", d.map->thumbs.lru - d.map->thumbs.thumb, d.map->thumbs.mru - d.map->thumbs.thumb, d.map->thumbs.thumb_max);
       ImGui::Separator();
-      ImGui::Text("Mouse windows %.0lf,%.0lf map %lf,%lf", d.map->mwx, d.map->mwy, d.map->mmx, d.map->mmy );
+      ImGui::Text("Window on map: min %lf,%lf max %lf,%lf", d.map->xm, d.map->ym, d.map->xM, d.map->yM);
+      ImGui::Text("Mouse win %.0lf,%.0lf map %lf,%lf", d.map->mwx, d.map->mwy, d.map->mmx, d.map->mmy);
       ImGui::Separator();
       ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
