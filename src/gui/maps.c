@@ -154,14 +154,18 @@ void map_mouse_scrolled(GLFWwindow* window, double xoff, double yoff)
   if(x >= d.center_x || x < (d.center_x + d.center_wd))
   {
     const double rate = (yoff > 0.0) ? 1.0f/1.2f : 1.2f;
-    const double mx = _win2map_x(x);
-    const double my = _win2map_y(y);
+    d.map->mwx = x - d.center_x;
+    d.map->mwy = y - d.center_y;
+    const double mx = _win2map_x(d.map->mwx);
+    const double my = _win2map_y(d.map->mwy);
     d.map->xm = mx - rate * (mx - d.map->xm);
     d.map->xM = mx + rate * (d.map->xM - mx);
     d.map->ym = my - rate * (my - d.map->ym);
     d.map->yM = my + rate * (d.map->yM - my);
     d.map->wd = d.map->xM - d.map->xm;
     d.map->pixel_size = d.map->wd / (double)d.center_wd;
+    d.map->mmx = mx;
+    d.map->mmy = my;
   }
   dt_gui_imgui_scrolled(window, xoff, yoff);
 }
@@ -176,6 +180,11 @@ void map_mouse_button(GLFWwindow* window, int button, int action, int mods)
     d.map->prevx = x;
     d.map->prevy = y;
     d.map->drag = 1;
+
+    d.map->mwx = x - d.center_x;
+    d.map->mwy = y - d.center_y;
+    d.map->mmx = _win2map_x(d.map->mwx);
+    d.map->mmy = _win2map_y(d.map->mwy);
   }
   else if(action == GLFW_RELEASE)
     d.map->drag = 0;
@@ -184,14 +193,22 @@ void map_mouse_button(GLFWwindow* window, int button, int action, int mods)
 
 void map_mouse_position(GLFWwindow* window, double x, double y)
 {
-  if(d.map->drag)
+  if(x >= d.center_x || x < (d.center_x + d.center_wd))
   {
-    const double dx = (d.map->prevx - x) * d.map->wd / (double)d.center_wd;
-    const double dy = (d.map->prevy - y) * d.map->ht / (double)d.center_ht;
-    d.map->xm += dx; d.map->xM += dx;
-    d.map->ym += dy; d.map->yM += dy;
-    d.map->prevx = x;
-    d.map->prevy = y;
+    if(d.map->drag)
+    {
+      const double dx = (d.map->prevx - x) * d.map->wd / (double)d.center_wd;
+      const double dy = (d.map->prevy - y) * d.map->ht / (double)d.center_ht;
+      d.map->xm += dx; d.map->xM += dx;
+      d.map->ym += dy; d.map->yM += dy;
+      d.map->prevx = x;
+      d.map->prevy = y;
+    }
+
+    d.map->mwx = x - d.center_x;
+    d.map->mwy = y - d.center_y;
+    d.map->mmx = _win2map_x(d.map->mwx);
+    d.map->mmy = _win2map_y(d.map->mwy);
   }
   dt_gui_imgui_mouse_position(window, x, y);
 }
@@ -408,8 +425,8 @@ void ap_map_tiles_init()
   d.map = (ap_map_t *)malloc(sizeof(ap_map_t));
   memset(d.map, 0, sizeof(*d.map));
 
-  dt_thumbnails_init(&d.map->thumbs, TILE_SIZE, TILE_SIZE, 200, 1ul<<29, "apdt-tiles", VK_FORMAT_R8G8B8A8_UNORM);
-  d.map->tiles_max = 200;
+  dt_thumbnails_init(&d.map->thumbs, TILE_SIZE, TILE_SIZE, 5000, 1ul<<29, "apdt-tiles", VK_FORMAT_R8G8B8A8_UNORM);
+  d.map->tiles_max = 5000;
   // init tiles collection
   d.map->tiles = malloc(sizeof(ap_tile_t)*d.map->tiles_max);
   memset(d.map->tiles, 0, sizeof(ap_tile_t)*d.map->tiles_max);

@@ -42,6 +42,10 @@ typedef struct ap_map_t
   int drag;
   int source;
 
+  //mouse
+  double mwx; double mwy;
+  double mmx; double mmy;
+
   // tiles vulkan images queue
   dt_thumbnails_t thumbs;
 
