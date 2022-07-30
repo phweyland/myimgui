@@ -67,6 +67,7 @@ inline static ap_tile_t *_tile_allocate(ap_map_t *tl, const uint64_t *zxy, uint3
   tl->mru = DLIST_APPEND(tl->mru, ti); // append to end and move tail
   ti->zxy[0] = zxy[0];
   ti->zxy[1] = zxy[1];
+  ti->thumbnail = -1u;
   ti->thumb_status = s_thumb_unavailable;
   *index = ti - tl->tiles;
   return ti;
@@ -247,10 +248,7 @@ int ap_map_request_tile(uint32_t index)
     struct stat statbuf = {0};
     if(!stat(path, &statbuf))
     {
-      tile->thumbnail = -1u; // for compatibility with image thumbnails
-      if(ap_map_load_one(&d.map->thumbs, path, &tile->thumbnail))
-        tile->thumbnail = 0;
-      else
+      if(!ap_map_load_one(&d.map->thumbs, path, &tile->thumbnail))
       {
         tile->thumb_status = s_thumb_loaded;
         return 0;
