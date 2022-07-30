@@ -123,6 +123,8 @@ int main(int argc, char *argv[])
       ap_gui_render_frame_imgui();
   }
 
+  dt_view_switch(s_view_lighttable);
+
   // Cleanup
   ap_gui_cleanup_imgui();
   dt_thumbnails_cleanup(&d.thumbs);
