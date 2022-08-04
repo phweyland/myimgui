@@ -187,8 +187,7 @@ void map_mouse_scrolled(GLFWwindow* window, double xoff, double yoff)
   glfwGetCursorPos(d.window, &x, &y);
 
   if(x >= d.center_x && x < (d.center_x + d.center_wd) &&
-//    (yoff > 0.0 || (d.map->z > 0 && d.map->wd < 1.0)) && (yoff < 0.0 || d.map->z < MAX_ZOOM))
-    (yoff > 0.0 || (d.map->z > 0 && d.map->wd < 1.0)))
+    (yoff > 0.0 || (d.map->z > 0 && d.map->wd < 1.0)) && (yoff < 0.0 || d.map->z < MAX_ZOOM))
   {
     d.map->z = (yoff > 0.0) ? ++d.map->z : --d.map->z;
     const double rate = (yoff > 0.0) ? 0.5f : 2.0f;

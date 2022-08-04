@@ -51,7 +51,6 @@ void render_map()
           if (ImGui::Selectable(map_source[n], is_selected))
           {
             d.map->source = n;
-//            themes_set[n]();
             dt_rc_set_int(&d.rc, "map_source", n);
           }
           // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
@@ -118,17 +117,21 @@ void render_map()
         b.yM = b.ym + tile_size;
         b.xM = b.xm + tile_size;
 
-        if(b.xM >= xm && b.xm <= xM)
+        if(b.xm >= xm && b.xM <= xM)
           _draw_tile(window, tile, &b);
         else
         {
-          if(b.xM < xm)
+          if((b.xM >= xm && b.xM + map_wd > xM) && (b.xm <= xM && b.xm - map_wd < xm))
+          {
+            _draw_tile(window, tile, &b);
+          }
+          if((b.xM < xm && b.xm + map_wd < xM) || (b.xM >= xm && b.xm + map_wd < xM))
           {
             b.xm += map_wd;
             b.xM += map_wd;
             _draw_tile(window, tile, &b);
           }
-          else if(b.xm > xM)
+          else if((b.xm > xM && b.xM - map_wd > xm) || (b.xm <= xM && b.xM - map_wd > xm))
           {
             b.xm -= map_wd;
             b.xM -= map_wd;
