@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <curl/curl.h>
 #include <sys/stat.h>
+#include <errno.h>
 
 typedef struct ap_map_tile_job_t
 {
@@ -447,6 +448,7 @@ void ap_map_reset_tile_req()
 
 void ap_map_cleanup()
 {
+  dt_rc_set_int(&d.rc, "map_source", d.map->source);
   d.map->thumbs.cache_req_abort = 1;
   ap_fifo_clean(&d.map->thumbs.cache_req);
   free(d.map);
@@ -458,13 +460,57 @@ static void _map_tile_reset_owner(const uint32_t index)
   d.map->tiles[index].zxy[0] = -1u;
 }
 
+static void _map_create_cache(const char *dir, const char *source)
+{
+  snprintf(d.map->thumbs.cachedir, sizeof(d.map->thumbs.cachedir), "%s/%s", d.cachedir, dir);
+  int err1 = mkdir(d.map->thumbs.cachedir, 0755);
+  if(err1 && errno != EEXIST)
+    dt_log(s_log_err|s_log_map, "could not create %s cache directory!", source);
+}
+
+static void _map_source_openstreetmap()
+{
+  _map_create_cache("osm", "openstreetmap");
+}
+
+static void _map_source_googlemap()
+{
+  _map_create_cache("ggm", "googlemap");
+}
+
+static void _map_source_satellitemap()
+{
+  _map_create_cache("stm", "satellitemap");
+}
+
+static void _map_source_hybrid()
+{
+  _map_create_cache("hbm", "hybridmap");
+}
+
+void (*ap_map_source_set[])() = {
+  &_map_source_openstreetmap,
+  &_map_source_googlemap,
+  &_map_source_satellitemap,
+  &_map_source_hybrid,
+};
+
 void ap_map_tiles_init()
 {
   d.map = (ap_map_t *)malloc(sizeof(ap_map_t));
   memset(d.map, 0, sizeof(*d.map));
 
-  dt_thumbnails_init(&d.map->thumbs, TILE_SIZE, TILE_SIZE, 1000, 1ul<<29, "apdt-tiles", VK_FORMAT_R8G8B8A8_UNORM);
+  dt_thumbnails_init(&d.map->thumbs, TILE_SIZE, TILE_SIZE, 1000, 1ul<<29, VK_FORMAT_R8G8B8A8_UNORM);
   d.map->thumbs.reset_owner = _map_tile_reset_owner;
+
+  const char *home = getenv("HOME");
+  snprintf(d.cachedir, sizeof(d.cachedir), "%s/.cache/apdt", home);
+  int err1 = mkdir(d.cachedir, 0755);
+  if(err1 && errno != EEXIST)
+    dt_log(s_log_err|s_log_map, "could not create tile cache directory!");
+
+  d.map->source = dt_rc_get_int(&d.rc, "map_source", 0);
+  ap_map_source_set[d.map->source]();
 
   d.map->tiles_max = 1000;
   // init tiles collection

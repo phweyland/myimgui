@@ -138,6 +138,7 @@ typedef struct apdt_t
   dt_rc_t rc;            // config file
   ap_db_t *db;
   char basedir[1024];
+  char cachedir[1024];
   int impdt_abort;
 
   ap_map_t *map;          // map data

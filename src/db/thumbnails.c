@@ -36,19 +36,10 @@ debug_test_list(
 
 VkResult
 dt_thumbnails_init(dt_thumbnails_t *tn, const int wd, const int ht, const int cnt, const size_t heap_size,
-                    const char *cachedir, VkFormat img_format)
+                   VkFormat img_format)
 {
   memset(tn, 0, sizeof(*tn));
 
-  // TODO: getenv(XDG_CACHE_HOME)
-  const char *home = getenv("HOME");
-  snprintf(tn->cachedir, sizeof(tn->cachedir), "%s/.cache/%s", home, cachedir);
-  int err1 = mkdir(tn->cachedir, 0755);
-  if(err1 && errno != EEXIST)
-  {
-    dt_log(s_log_err|s_log_db, "could not create thumbnail cache directory!");
-    return VK_INCOMPLETE;
-  }
 
   tn->thumb_wd = wd,
   tn->thumb_ht = ht,
@@ -532,7 +523,17 @@ VkResult dt_thumbnails_vkdt_load_one(dt_thumbnails_t *tn, const char *filename, 
 
 VkResult dt_thumbnails_vkdt_init()
 {
-  VkResult res = dt_thumbnails_init(&d.thumbs, 400, 400, 1000, 1ul<<30, "vkdt", VK_FORMAT_BC1_RGB_SRGB_BLOCK);
+
+  VkResult res = dt_thumbnails_init(&d.thumbs, 400, 400, 1000, 1ul<<30, VK_FORMAT_BC1_RGB_SRGB_BLOCK);
+
+  const char *home = getenv("HOME");
+  snprintf(d.thumbs.cachedir, sizeof(d.thumbs.cachedir), "%s/.cache/vkdt", home);
+  int err1 = mkdir(d.thumbs.cachedir, 0755);
+  if(err1 && errno != EEXIST)
+  {
+    dt_log(s_log_err|s_log_db, "could not create thumbnail cache directory!");
+    return VK_INCOMPLETE;
+  }
 
   // init thumbnail generation queue
   ap_fifo_init(&d.thumbs.cache_req, sizeof(uint32_t), 3);

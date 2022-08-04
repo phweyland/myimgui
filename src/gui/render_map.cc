@@ -51,6 +51,7 @@ void render_map()
           if (ImGui::Selectable(map_source[n], is_selected))
           {
             d.map->source = n;
+            ap_map_source_set[n]();
             dt_rc_set_int(&d.rc, "map_source", n);
           }
           // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
@@ -184,6 +185,5 @@ extern "C" int map_enter()
   d.map->pixel_size = d.map->wd / (double)d.center_wd;
   d.map->drag = 0;
 
-  d.map->source = dt_rc_get_int(&d.rc, "map_source", 0);
   return 0;
 }

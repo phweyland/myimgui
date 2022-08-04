@@ -78,7 +78,6 @@ VkResult dt_thumbnails_init(
     const int ht,            // max height of thumbnail
     const int cnt,           // max number of thumbnails
     const size_t heap_size,  // max heap size in bytes (allocated on GPU)
-    const char *cachedir,
     VkFormat img_format);
 
 // free all resources

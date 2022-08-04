@@ -84,3 +84,4 @@ void ap_map_cleanup();
 
 double ap_map2win_x(const double mx);
 double ap_map2win_y(const double my);
+extern void (*ap_map_source_set[])();
