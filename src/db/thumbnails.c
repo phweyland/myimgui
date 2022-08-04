@@ -64,10 +64,12 @@ dt_thumbnails_init(dt_thumbnails_t *tn, const int wd, const int ht, const int cn
   tn->mru = tn->thumb + tn->thumb_max-1;
   tn->thumb[0].next = tn->thumb+1;
   tn->thumb[tn->thumb_max-1].prev = tn->thumb+tn->thumb_max-2;
+  tn->thumb[0].owner = tn->thumb[tn->thumb_max-1].owner = -1u;
   for(int k=1;k<tn->thumb_max-1;k++)
   {
     tn->thumb[k].next = tn->thumb+k+1;
     tn->thumb[k].prev = tn->thumb+k-1;
+    tn->thumb[k].owner = -1u;
   }
   dt_log(s_log_db, "allocating %3.1f MB for thumbnails", heap_size/(1024.0*1024.0));
 
@@ -202,6 +204,8 @@ dt_thumbnail_t *dt_thumbnails_allocate(dt_thumbnails_t *tn, uint32_t *index)
     DLIST_RM_ELEMENT(th);                // disconnect old head
     tn->mru = DLIST_APPEND(tn->mru, th); // append to end and move tail
     *index = th - tn->thumb;
+    if(tn->reset_owner != NULL && th->owner != -1u)
+      tn->reset_owner(th->owner);
   }
   else th = tn->thumb + *index;
   return th;
@@ -219,6 +223,7 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, dt_thumbnail_t *th, const c
   th->image      = 0;
   th->image_view = 0;
   th->offset     = -1u;
+  th->owner      = -1u;
   if(th->mem)    dt_vkfree(&tn->alloc, th->mem);
   th->mem        = 0;
   // keep dset and prev/next dlist pointers! (i.e. don't memset th)

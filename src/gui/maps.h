@@ -5,8 +5,8 @@
 
 #define TILE_SERVER   "https://a.tile.openstreetmap.org/%s.png" // the tile map server url
 #define TILE_SIZE     256                                 // the expected size of tiles in pixels, e.g. 256x256px
-#define MAX_ZOOM      20                                  // the maximum zoom level provided by the server
-#define MAX_THREADS   4                                   // the maximum threads to use for downloading tiles (OSC strictly forbids more than 2)
+#define MAX_ZOOM      19                                  // the maximum zoom level provided by the server
+#define MAX_THREADS   2                                   // the maximum threads to use for downloading tiles (OSC strictly forbids more than 2)
 #define USER_AGENT    "myap"                              // change this to represent your own app if you extend this code
 
 typedef struct ap_map_bounds_t
@@ -20,8 +20,7 @@ typedef struct ap_tile_t
   int z; // zoom    [0......20]
   int x; // x index [0......z] z+1 values
   int y; // y index [0......z] z+1 values (z+1)^2 combinations
-  uint64_t zxy[2];
-  int zero; // keep a a null character...
+  uint64_t zxy[3];
   struct ap_tile_t *prev;    // dlist for lru cache
   struct ap_tile_t *next;
   uint32_t thumbnail;
@@ -30,8 +29,7 @@ typedef struct ap_tile_t
 
 typedef struct ap_map_t
 {
-//  double cx; double cy; // window center on map (0.0, 1.0)
-  // characteristics / map
+  // window coordinates on map (0.0, 1.0)
   double wd; double ht;
   double xm; double xM;
   double ym; double yM;
@@ -45,6 +43,7 @@ typedef struct ap_map_t
   //mouse
   double mwx; double mwy;
   double mmx; double mmy;
+  uint32_t mtile;
 
   // tiles vulkan images queue
   dt_thumbnails_t thumbs;
@@ -82,3 +81,6 @@ void ap_map_get_region();
 
 void ap_map_tiles_init();
 void ap_map_cleanup();
+
+double ap_map2win_x(const double mx);
+double ap_map2win_y(const double my);

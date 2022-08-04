@@ -39,6 +39,7 @@ typedef struct dt_thumbnail_t
   struct dt_thumbnail_t *next;
   uint32_t               wd;
   uint32_t               ht;
+  uint32_t               owner;
 }
 dt_thumbnail_t;
 
@@ -66,6 +67,7 @@ typedef struct dt_thumbnails_t
   ap_fifo_t cache_req;
   int cache_req_abort;
   threads_mutex_t       req_lock;
+  void                  (*reset_owner)(const uint32_t index);
 }
 dt_thumbnails_t;
 

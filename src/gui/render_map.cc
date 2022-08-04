@@ -2,7 +2,6 @@
 #include "imgui.h"
 #include "imgui_internal.h"
 #include <GLFW/glfw3.h>
-
 extern "C" {
 #include "core/core.h"
 #include "core/token.h"
@@ -19,6 +18,19 @@ const char *map_source[] = {
   "GoogleHybrid",
   NULL
 };
+
+void _draw_tile(ImGuiWindow* window , ap_tile_t *tile, ap_map_bounds_t *b)
+{
+  uint32_t th = tile->thumbnail;
+  const ImU32 col = ImGui::GetColorU32(d.debug ? ((tile->x % 2 == 0 && tile->y % 2 != 0) || (tile->x % 2 != 0 && tile->y % 2 == 0)) ? ImVec4(1,0.7,1,1) : ImVec4(1,1,0.7,1) : ImVec4(1,1,1,1));
+  window->DrawList->AddImage(d.map->thumbs.thumb[th].dset, ImVec2(b->xm, b->ym), ImVec2(b->xM, b->yM), {0,0}, {1,1}, col);
+  if(d.debug)
+  {
+    char text[100];
+    snprintf(text, sizeof(text),"%s\nti %ld th %d", dt_token_str(tile->zxy), tile - d.map->tiles, th);
+    window->DrawList->AddText(0, 0.0f, ImVec2(b->xm, (b->ym+b->yM)*0.5), 0xff111111u, text);
+  }
+}
 
 void render_map()
 {
@@ -61,9 +73,10 @@ void render_map()
       ImGui::Separator();
       ImGui::Text("Window on map: min %lf,%lf max %lf,%lf", d.map->xm, d.map->ym, d.map->xM, d.map->yM);
       ImGui::Text("Mouse win %.0lf,%.0lf map %lf,%lf", d.map->mwx, d.map->mwy, d.map->mmx, d.map->mmy);
+      ImGui::Text("Tile %d %s th %d status %d", d.map->mtile, d.map->mtile != -1u ? dt_token_str(d.map->tiles[d.map->mtile].zxy) : "none",
+                  d.map->mtile != -1u ? d.map->tiles[d.map->mtile].thumbnail : -1u, d.map->mtile != -1u ? d.map->tiles[d.map->mtile].thumb_status : -1u);
       ImGui::Separator();
       ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-
     }
 
     ImVec2 window_size = ImGui::GetWindowSize();
@@ -84,29 +97,43 @@ void render_map()
     ImGui::SetNextWindowSize(ImVec2(d.center_wd, d.center_ht), ImGuiCond_Always);
     ImGui::Begin("Map", 0, window_flags);
     ImGuiWindow* window = ImGui::GetCurrentWindow();
-
     ap_map_get_region();
     // map origin on window
-    double x = -d.map->xm / d.map->pixel_size;
-    double y = -d.map->ym / d.map->pixel_size;
+    double x0 = ap_map2win_x(0.0);
+    double y0 = ap_map2win_y(0.0);
+    double xm = ap_map2win_x(d.map->xm) + (double)d.center_x;
+    double xM = xm + (double)d.center_wd;
+
     for(int i = 0; i < d.map->region_cnt; i++)
     {
       ap_tile_t *tile = &d.map->tiles[d.map->region[i]];
-      if(tile->thumb_status == s_thumb_loaded)
+      if(tile->thumbnail  != -1u)
       {
-        double tile_size = (double)d.center_wd / d.map->wd / (double)(1<<tile->z); // pixels
+        double tile_size = (double)((d.map->z > tile->z) ? 1 << (d.map->z - tile->z) : 1) * (double)TILE_SIZE;
         ap_map_bounds_t b;
-        b.xm = x + tile->x * tile_size + (double)d.center_x;
-        b.ym = y + tile->y * tile_size + (double)d.center_y;
-        b.xM = b.xm + tile_size;
+        const int k = 1 << tile->z;
+        double map_wd = (double)k * tile_size;
+        b.xm = x0 + tile->x * tile_size + (double)d.center_x;
+        b.ym = y0 + tile->y * tile_size + (double)d.center_y;
         b.yM = b.ym + tile_size;
-        uint32_t tid = tile->thumbnail;
-        if(tid != -1u)
+        b.xM = b.xm + tile_size;
+
+        if(b.xM >= xm && b.xm <= xM)
+          _draw_tile(window, tile, &b);
+        else
         {
-          const ImU32 col = ImGui::GetColorU32(d.debug ? ((tile->x % 2 == 0 && tile->y % 2 != 0) || (tile->x % 2 != 0 && tile->y % 2 == 0)) ? ImVec4(1,0,1,1) : ImVec4(1,1,0,1) : ImVec4(1,1,1,1));
-          window->DrawList->AddImage(d.map->thumbs.thumb[tid].dset, ImVec2(b.xm, b.ym), ImVec2(b.xM, b.yM), {0,0}, {1,1}, col);
-          if(d.debug)
-            window->DrawList->AddText(0, 0.0f, ImVec2(b.xm, (b.ym+b.yM)*0.5), 0xff111111u, dt_token_str(tile->zxy));
+          if(b.xM < xm)
+          {
+            b.xm += map_wd;
+            b.xM += map_wd;
+            _draw_tile(window, tile, &b);
+          }
+          else if(b.xm > xM)
+          {
+            b.xm -= map_wd;
+            b.xM -= map_wd;
+            _draw_tile(window, tile, &b);
+          }
         }
       }
     }
@@ -121,22 +148,36 @@ void render_map()
 
 extern "C" int map_leave()
 {
+  dt_rc_set_int(&d.rc, "map_region_z", d.map->z);
   dt_rc_set_float(&d.rc, "map_region_xm", d.map->xm);
   dt_rc_set_float(&d.rc, "map_region_ym", d.map->ym);
-  dt_rc_set_float(&d.rc, "map_region_wd", d.map->wd);
   return 0;
 }
 
 extern "C" int map_enter()
 {
-  d.map->xm = dt_rc_get_float(&d.rc, "map_region_xm", 0.0);
-  d.map->ym = dt_rc_get_float(&d.rc, "map_region_ym", 10.0);  // 10.0 shouldn't not happen in real life
-  d.map->wd = dt_rc_get_float(&d.rc, "map_region_wd", 1.0);
+  d.map->z = dt_rc_get_int(&d.rc, "map_region_z", 0);
+  int k;
+  if(d.map->z == 0)
+  {
+    k = 1 << d.map->z;
+    while(k * TILE_SIZE < d.center_wd)
+      k = (1 << ++d.map->z);
+    k -= 1;
+    d.map->wd = (double)d.center_wd / (double)(k * TILE_SIZE);
+    d.map->xm = 0.5 * (1.0 - d.map->wd);
+  }
+  else
+  {
+    k = 1 << d.map->z;
+    d.map->wd = (double)d.center_wd / (double)(k * TILE_SIZE);
+    d.map->xm = dt_rc_get_float(&d.rc, "map_region_xm", 0.0);
+    d.map->ym = dt_rc_get_float(&d.rc, "map_region_ym", 0.0);
+  }
+
   d.map->xM = d.map->xm + d.map->wd;
-  double ht = (double)d.center_ht / (double)d.center_wd * d.map->wd;
-  if(d.map->ym == 10.0)
-    d.map->ym = 0.5 - 0.5 * ht;
-  d.map->yM = d.map->ym + ht;
+  d.map->ht = (double)d.center_ht / (double)d.center_wd * d.map->wd;
+  d.map->yM = d.map->ym + d.map->ht;
   d.map->pixel_size = d.map->wd / (double)d.center_wd;
   d.map->drag = 0;
 
