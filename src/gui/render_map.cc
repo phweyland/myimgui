@@ -53,6 +53,7 @@ void render_map()
             d.map->source = n;
             ap_map_source_set[n]();
             dt_rc_set_int(&d.rc, "map_source", n);
+            ap_map_source_set[n]();
           }
           // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
           if (is_selected)

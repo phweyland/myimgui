@@ -3,9 +3,7 @@
 #include "gui/view.h"
 #include <GLFW/glfw3.h>
 
-#define TILE_SERVER   "https://a.tile.openstreetmap.org/%s.png" // the tile map server url
 #define TILE_SIZE     256                                 // the expected size of tiles in pixels, e.g. 256x256px
-#define MAX_ZOOM      19                                  // the maximum zoom level provided by the server
 #define MAX_THREADS   2                                   // the maximum threads to use for downloading tiles (OSC strictly forbids more than 2)
 #define USER_AGENT    "myap"                              // change this to represent your own app if you extend this code
 
@@ -39,6 +37,8 @@ typedef struct ap_map_t
   int z;
   int drag;
   int source;
+  char *server;
+  int max_zoom;
 
   //mouse
   double mwx; double mwy;

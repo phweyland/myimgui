@@ -52,9 +52,27 @@ size_t curl_write_cb(void *ptr, size_t size, size_t nmemb, void *userdata) {
   return written;
 }
 
-inline static ap_tile_t *_tile_allocate(ap_map_t *tl, const uint64_t *zxy, uint32_t *index)
+void _tiles_reset()
 {
   ap_tile_t *ti = NULL;
+  ap_map_t *tl = d.map;
+  for(ti = tl->mru; ti->prev != NULL; ti = ti->prev)
+  {
+    if(ti->zxy[0] == 0)
+      break;
+    if(ti->thumbnail != -1u)
+    {
+      d.map->thumbs.thumb[ti->thumbnail].owner = -1u;
+      ti->thumbnail = -1u;
+      ti->zxy[0] = -1u;
+    }
+  }
+}
+
+inline static ap_tile_t *_tile_allocate(const uint64_t *zxy, uint32_t *index)
+{
+  ap_tile_t *ti = NULL;
+  ap_map_t *tl = d.map;
   for(ti = tl->mru; ti->prev != NULL; ti = ti->prev)
   {
     if(ti->zxy[0] == 0)
@@ -111,7 +129,7 @@ static int _append_region(int z, double min_x, double max_x, double min_y, doubl
       uint64_t zxy[2];
       zxy[0] = dt_token(text);
       zxy[1] = dt_token(text+8);
-      ap_tile_t *tile = _tile_allocate(d.map, &zxy[0], &index);
+      ap_tile_t *tile = _tile_allocate(&zxy[0], &index);
       tile->x = cx;
       tile->y = y;
       tile->z = z;
@@ -188,7 +206,7 @@ void map_mouse_scrolled(GLFWwindow* window, double xoff, double yoff)
   glfwGetCursorPos(d.window, &x, &y);
 
   if(x >= d.center_x && x < (d.center_x + d.center_wd) &&
-    (yoff > 0.0 || (d.map->z > 0 && d.map->wd < 1.0)) && (yoff < 0.0 || d.map->z < MAX_ZOOM))
+    (yoff > 0.0 || (d.map->z > 0 && d.map->wd < 1.0)) && (yoff < 0.0 || d.map->z < d.map->max_zoom))
   {
     d.map->z = (yoff > 0.0) ? ++d.map->z : --d.map->z;
     const double rate = (yoff > 0.0) ? 0.5f : 2.0f;
@@ -301,7 +319,7 @@ int ap_map_request_tile(uint32_t index)
     return 0;
 
   char path[512] = {0};
-  snprintf(path, sizeof(path), "%s/%s.png", d.map->thumbs.cachedir, dt_token_str(tile->zxy));
+  snprintf(path, sizeof(path), d.map->source == 0 ? "%s/%s.png" : "%s/%s.jpg", d.map->thumbs.cachedir, dt_token_str(tile->zxy));
   struct stat statbuf = {0};
 
   // thumbnail in cache
@@ -358,7 +376,7 @@ void map_work(uint32_t item, void *arg)
   curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
   curl_easy_setopt(curl, CURLOPT_USERAGENT, USER_AGENT);
   curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
-
+  int i = 0;
   while(1)
   {
     if(d.map->thumbs.cache_req_abort)
@@ -374,9 +392,30 @@ void map_work(uint32_t item, void *arg)
       char url[256];
       char path[512];
       char real_path[512];
-      snprintf(url, sizeof(url), TILE_SERVER, dt_token_str(job.zxy));
-      snprintf(path, sizeof(path), "%s/%s.dld", d.map->thumbs.cachedir, dt_token_str(job.zxy));
-      snprintf(real_path, sizeof(real_path), "%s/%s.png", d.map->thumbs.cachedir, dt_token_str(job.zxy));
+      if(d.map->source == 0)
+      {
+        snprintf(url, sizeof(url), d.map->server, dt_token_str(job.zxy));
+        snprintf(path, sizeof(path), "%s/%s.dld", d.map->thumbs.cachedir, dt_token_str(job.zxy));
+        snprintf(real_path, sizeof(real_path), "%s/%s.png", d.map->thumbs.cachedir, dt_token_str(job.zxy));
+      }
+      else
+      {
+        char text[20];
+        snprintf(text, sizeof(text), "%s", dt_token_str(job.zxy));
+        char *z = text;
+        char *x = strchr(z, '/');
+        x[0] = '\0';
+        x++;
+        char *y = strchr(x, '/');
+        y[0] = '\0';
+        y++;
+        snprintf(url, sizeof(url), d.map->server, i, x, y, z);
+        i++;
+        if(i == 4)
+          i = 0;
+        snprintf(path, sizeof(path), "%s/%s.dld", d.map->thumbs.cachedir, dt_token_str(job.zxy));
+        snprintf(real_path, sizeof(real_path), "%s/%s.jpg", d.map->thumbs.cachedir, dt_token_str(job.zxy));
+      }
       struct stat statbuf = {0};
       if(stat(real_path, &statbuf))
       {
@@ -460,7 +499,7 @@ static void _map_tile_reset_owner(const uint32_t index)
   d.map->tiles[index].zxy[0] = -1u;
 }
 
-static void _map_create_cache(const char *dir, const char *source)
+static void _map_set_cache(const char *dir, const char *source)
 {
   snprintf(d.map->thumbs.cachedir, sizeof(d.map->thumbs.cachedir), "%s/%s", d.cachedir, dir);
   int err1 = mkdir(d.map->thumbs.cachedir, 0755);
@@ -470,22 +509,34 @@ static void _map_create_cache(const char *dir, const char *source)
 
 static void _map_source_openstreetmap()
 {
-  _map_create_cache("osm", "openstreetmap");
+  _map_set_cache("osm", "openstreetmap");
+  d.map->max_zoom = 19;
+  d.map->server = "https://a.tile.openstreetmap.org/%s.png";
+  _tiles_reset();
 }
 
 static void _map_source_googlemap()
 {
-  _map_create_cache("ggm", "googlemap");
+  _map_set_cache("ggm", "googlemap");
+  d.map->max_zoom = 19;
+  d.map->server = "http://mt%d.google.com/vt/lyrs=m&hl=en&x=%s&s=&y=%s&z=%s";
+  _tiles_reset();
 }
 
 static void _map_source_satellitemap()
 {
-  _map_create_cache("stm", "satellitemap");
+  _map_set_cache("stm", "satellitemap");
+  d.map->max_zoom = 19;
+  d.map->server = "http://mt%d.google.com/vt/lyrs=s&hl=en&x=%s&s=&y=%s&z=%s";
+  _tiles_reset();
 }
 
 static void _map_source_hybrid()
 {
-  _map_create_cache("hbm", "hybridmap");
+  _map_set_cache("hbm", "hybridmap");
+  d.map->max_zoom = 19;
+  d.map->server = "http://mt%d.google.com/vt/lyrs=y&hl=en&x=%s&s=&y=%s&z=%s";
+  _tiles_reset();
 }
 
 void (*ap_map_source_set[])() = {
@@ -509,9 +560,6 @@ void ap_map_tiles_init()
   if(err1 && errno != EEXIST)
     dt_log(s_log_err|s_log_map, "could not create tile cache directory!");
 
-  d.map->source = dt_rc_get_int(&d.rc, "map_source", 0);
-  ap_map_source_set[d.map->source]();
-
   d.map->tiles_max = 1000;
   // init tiles collection
   d.map->tiles = malloc(sizeof(ap_tile_t)*d.map->tiles_max);
@@ -532,6 +580,9 @@ void ap_map_tiles_init()
   d.map->region_max = 200;
   d.map->region_cnt = 0;
   d.map->region = (uint32_t *)malloc(sizeof(uint32_t)*d.map->region_max);
+
+  d.map->source = dt_rc_get_int(&d.rc, "map_source", 0);
+  ap_map_source_set[d.map->source]();
 
   // job stuff
   ap_fifo_init(&d.map->thumbs.cache_req, sizeof(ap_map_tile_job_t), 200);
