@@ -551,7 +551,7 @@ void ap_map_tiles_init()
   d.map = (ap_map_t *)malloc(sizeof(ap_map_t));
   memset(d.map, 0, sizeof(*d.map));
 
-  dt_thumbnails_init(&d.map->thumbs, TILE_SIZE, TILE_SIZE, 1000, 1ul<<29, VK_FORMAT_R8G8B8A8_UNORM);
+  dt_thumbnails_init(&d.map->thumbs, TILE_SIZE, TILE_SIZE, 1000, 1ul<<29, VK_FORMAT_R8G8B8A8_SRGB);
   d.map->thumbs.reset_owner = _map_tile_reset_owner;
 
   const char *home = getenv("HOME");
