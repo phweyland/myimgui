@@ -286,6 +286,8 @@ void render_lighttable()
             const uint32_t j = i + k;
             ap_image_t *image = &d.img.images[d.img.collection[j]];
             uint32_t tid = image->thumbnail;
+            if(tid == -1u)
+              tid = 0;
             char img[256];
             snprintf(img, sizeof(img), "%s", image->filename);
 

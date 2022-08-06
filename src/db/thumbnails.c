@@ -418,6 +418,26 @@ VkResult dt_thumbnails_load_one(dt_thumbnails_t *tn, dt_thumbnail_t *th, const c
   return res;
 }
 
+static VkResult _dev_changed(ap_image_t *img)
+{
+  char filename[PATH_MAX+100] = {0};
+  time_t tcfg = 0, tbc1 = 0;
+  struct stat statbuf = {0};
+
+  snprintf(filename, sizeof(filename), "%s/%s.cfg", img->path, img->filename);
+  if(!stat(filename, &statbuf))
+    tcfg = statbuf.st_mtim.tv_sec;
+  else
+    return VK_SUCCESS;  // no dev => no change
+
+  snprintf(filename, sizeof(filename), "%s/%x.bc1", d.thumbs.cachedir, img->hash);
+  if(!stat(filename, &statbuf))
+    tbc1 = statbuf.st_mtim.tv_sec;
+
+  if(tbc1 >= tcfg) return VK_SUCCESS; // already up to date
+  return VK_INCOMPLETE;
+}
+
 void dt_thumbnails_vkdt_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t end)
 {
   // for all images in given collection
@@ -427,10 +447,17 @@ void dt_thumbnails_vkdt_load_list(dt_thumbnails_t *tn, uint32_t beg, uint32_t en
     ap_image_t *img = &d.img.images[d.img.collection[k]];
 
     if(img->thumb_status == s_thumb_loaded)// && img->thumbnail > 1 && img->thumbnail < tn->thumb_max)
-    { // loaded, update lru/mru
-      dt_thumbnails_move_to_mru(tn, img->thumbnail);
+    {
+      // check if development has changed
+      if(_dev_changed(img) == VK_INCOMPLETE)
+      {// force update
+        img->thumbnail = -1u;
+        img->thumb_status = s_thumb_unavailable;
+      }
+      else // loaded, update lru/mru
+        dt_thumbnails_move_to_mru(tn, img->thumbnail);
     }
-    else if(img->thumb_status != s_thumb_dead)
+    else if(img->thumb_status != s_thumb_dead && img->thumb_status != s_thumb_downloading)
     { // not loaded
       char filename[PATH_MAX+100] = {0};
       snprintf(filename, sizeof(filename), "%s/%x.bc1", tn->cachedir, img->hash);
