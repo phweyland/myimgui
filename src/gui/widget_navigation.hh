@@ -12,7 +12,7 @@ struct ap_navigation_widget_t
   int count;        // nb subnodes
   char *selected;   // selected
   char sep[4];      // '/' or '|'
-  int type;         // 0: folder; 1: tags
+  int type;         // 0: folder (db); 1: tags (db); 2: dir (file system)
 };
 
 void ap_navigation_init(ap_navigation_widget_t *w, const int type);

@@ -57,7 +57,7 @@ int ap_gui_init()
   ap_gui_init_imgui();
 
   const int type = dt_rc_get_int(&d.rc, "gui/last_collection_type", 0);
-  const char *node = dt_rc_get(&d.rc, type == 0 ? "gui/last_folder" : "gui/last_tag", "");
+  const char *node = dt_rc_get(&d.rc, type == 0 ? "gui/last_folder" : type == 1 ? "gui/last_tag" : "gui/last_import", "");
   ap_gui_switch_collection(node, type);
 
   return 0;
@@ -85,7 +85,7 @@ void ap_gui_switch_collection(const char *node, const int type)
   snprintf(d.img.node, sizeof(d.img.node), "%s", node);
   d.img.type = type;
   clock_t beg = clock();
-  d.img.cnt = ap_db_get_images(node, type, &d.img.images);
+  d.img.cnt = type != 2 ? ap_db_get_images(node, type, &d.img.images) : ap_fs_get_images(node, type, &d.img.images);
   clock_t end = clock();
   dt_log(s_log_perf, "[db] ran get images in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
 
@@ -95,7 +95,7 @@ void ap_gui_switch_collection(const char *node, const int type)
   d.img.current_imgid = d.img.current_colid = -1u;
   dt_gui_update_collection();
 
-  dt_rc_set(&d.rc, type == 0 ? "gui/last_folder" : "gui/last_tag", d.img.node);
+  dt_rc_set(&d.rc, type == 0 ? "gui/last_folder" : type == 1 ? "gui/last_tag" : "gui/last_import", d.img.node);
   dt_rc_set_int(&d.rc, "gui/last_collection_type", d.img.type);
 }
 

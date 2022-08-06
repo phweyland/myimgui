@@ -1,5 +1,6 @@
 CORE_O=core/log.o \
        core/threads.o \
+			 core/fs.o\
 			 core/qvk_util.o
 CORE_H=core/core.h \
        core/log.h \

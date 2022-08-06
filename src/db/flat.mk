@@ -12,6 +12,7 @@ db/thumbnails.h\
 db/database.h\
 db/stringpool.h\
 db/murmur3.h\
+db/fs.h\
 core/dlist.h\
 core/log.h\
 core/core.h\

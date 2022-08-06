@@ -18,6 +18,7 @@ char impdt_text[256];
 int impdt_taskid;
 dt_filebrowser_widget_t vkdtbrowser;
 dt_filebrowser_widget_t darktablebrowser;
+ap_navigation_widget_t importbrowser;
 ap_navigation_widget_t folderbrowser;
 ap_navigation_widget_t tagbrowser;
 
@@ -88,6 +89,11 @@ void render_lighttable()
         if (ImGui::BeginTabItem("Tags"))
         {
           ap_navigation_open(&tagbrowser);
+          ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("Import"))
+        {
+          ap_navigation_open(&importbrowser);
           ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
@@ -366,6 +372,7 @@ extern "C" int lighttable_enter()
   dt_filebrowser_init(&darktablebrowser);
   ap_navigation_init(&folderbrowser, 0);
   ap_navigation_init(&tagbrowser, 1);
+  ap_navigation_init(&importbrowser, 2);
   return 0;
 }
 
