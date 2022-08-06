@@ -110,6 +110,7 @@ void render_lighttable()
       ImGui::Text("Date Time:");
       ImGui::SameLine(0.0f, spacing);
       ImGui::Text("%s", (d.img.selection_cnt != 1) ?  "-" : d.img.images[d.img.selection[0]].datetime);
+      ImGui::Separator();
 
       ImGui::Text("Longitude:");
       ImGui::SameLine(0.0f, spacing);
