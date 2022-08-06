@@ -129,6 +129,7 @@ typedef struct apdt_t
   int swapchainrebuild;
   int ipl;
   int scrollpos;
+  int col_tab_req;
 
   int view_mode;
 

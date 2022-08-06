@@ -22,6 +22,14 @@ ap_navigation_widget_t importbrowser;
 ap_navigation_widget_t folderbrowser;
 ap_navigation_widget_t tagbrowser;
 
+static bool _begin_tab(const char *tab, const uint32_t type)
+{
+  bool b = ImGui::BeginTabItem(tab, NULL, d.col_tab_req & (1<<type) ? ImGuiTabItemFlags_SetSelected : 0);
+  if(d.col_tab_req & (1<<type))
+    d.col_tab_req &= ~(1<<type);
+  return b;
+}
+
 void render_lighttable()
 {
   const float spacing = 5.0f;
@@ -81,17 +89,17 @@ void render_lighttable()
       ImGuiTabBarFlags tab_bar_flags = ImGuiTabBarFlags_None;
       if (ImGui::BeginTabBar("MyTabBar", tab_bar_flags))
       {
-        if (ImGui::BeginTabItem("Folders"))
+        if(_begin_tab("Folders", 0))
         {
           ap_navigation_open(&folderbrowser);
           ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Tags"))
+        if(_begin_tab("Tags", 1))
         {
           ap_navigation_open(&tagbrowser);
           ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem("Import"))
+        if(_begin_tab("Import", 2))
         {
           ap_navigation_open(&importbrowser);
           ImGui::EndTabItem();

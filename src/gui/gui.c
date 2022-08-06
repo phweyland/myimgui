@@ -97,6 +97,7 @@ void ap_gui_switch_collection(const char *node, const int type)
 
   dt_rc_set(&d.rc, type == 0 ? "gui/last_folder" : type == 1 ? "gui/last_tag" : "gui/last_import", d.img.node);
   dt_rc_set_int(&d.rc, "gui/last_collection_type", d.img.type);
+  d.col_tab_req = 1<<type;
 }
 
 void ap_gui_image_edit(const uint32_t imgid)
