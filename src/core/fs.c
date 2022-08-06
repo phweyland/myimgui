@@ -2,6 +2,7 @@
 #include "core/log.h"
 #include "db/db.h"
 #include "db/murmur3.h"
+#include "db/exif.h"
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -187,7 +188,11 @@ int ap_fs_get_images(const char *node, const int type, ap_image_t **images)
     image->hash = murmur_hash3(fullname, strnlen(fullname, sizeof(fullname)), 1337);
     image->labels = 0;
     image->rating = 0;
-    snprintf(image->datetime, sizeof(image->datetime), "%s", "");
+    char model[20];
+    char datetime[20];
+    fullname[strlen(fullname) - 4] = '\0';
+    dt_db_exif_mini(fullname, datetime, model, sizeof(model));
+    snprintf(image->datetime, sizeof(image->datetime), "%s.000", datetime);
     image->longitude = NAN;
     image->latitude = NAN;
     image->altitude = NAN;
