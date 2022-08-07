@@ -615,7 +615,7 @@ void vkdt_work(uint32_t item, void *arg)
       char cmd[512];
       const char *f2 = d.img.images[index].filename + strlen(d.img.images[index].filename);
       while(f2 > d.img.images[index].filename && *f2 != '.') f2--;
-      snprintf(cmd, sizeof(cmd), "%svkdt-cli -g %s/%s.cfg --width 400 --height 400 "
+      snprintf(cmd, sizeof(cmd), "%svkdt-cli -g \'%s/%s.cfg\' --width 400 --height 400 "
                                  "--format o-bc1 --filename %s/%x.bc1 "
                                  "--config param:f2srgb:main:usemat:0", // rec2020
                dt_rc_get(&d.rc, "vkdt_folder", ""), d.img.images[index].path, d.img.images[index].filename,

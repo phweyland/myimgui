@@ -38,6 +38,8 @@ static void _update_node(ap_navigation_widget_t *w)
 
 void ap_navigation_open(ap_navigation_widget_t *w)
 {
+  if(d.img.type != w->type || w->count == -1u)
+    ap_gui_switch_collection(w->node, w->type);
   if(w->count == -1u)
   {
     clock_t beg = clock();
@@ -51,34 +53,24 @@ void ap_navigation_open(ap_navigation_widget_t *w)
     w->button = "Open";
   }
 
-  if(ImGui::Button(w->button))
+  if(w->type == 2)
   {
-    if(w->type == 2)
+    if(ImGui::Button("Import"))
     {
-      if(strcmp(w->button, "Open") == 0)
+      const char *folder = ap_db_get_folder(w->node);
+      if(folder && d.img.cnt)
       {
-        ap_gui_switch_collection(w->node, w->type);
-        w->button = "Import";
-      }
-      else
-      {
-        const char *folder = ap_db_get_folder(w->node);
-        printf("get folder %s\n", folder);
-        if(folder)
-        {
-          d.col_tab_req = 1<<0;  // go to Folders tab
-          ap_navigation_widget_t *wf = d.browser[0];
-          snprintf(wf->node, sizeof(wf->node), "%s", folder);
-          wf->node[strlen(wf->node) - 1] = '\0';  // remove the leading '/''
-        }
+        d.col_tab_req = 1<<0;  // go to Folders tab
+        ap_navigation_widget_t *wf = d.browser[0];
+        snprintf(wf->node, sizeof(wf->node), "%s", folder);
+        wf->node[strlen(wf->node) - 1] = '\0';  // remove the leading '/''
+        ap_db_add_images(d.img.selection, d.img.selection_cnt);
       }
     }
-    else
-      ap_gui_switch_collection(w->node, w->type);
+    ImGui::SameLine();
   }
   char current[256];
   snprintf(current, sizeof(current), "%s", w->node[0] ? w->node : w->type == 2 ? "/" : "root");
-  ImGui::SameLine();
   ImGui::Text("%s", current);
 
   ImGui::BeginChild("nodelist", ImVec2(0, ImGui::GetFontSize() * 10.0f), 0);
@@ -121,7 +113,7 @@ void ap_navigation_open(ap_navigation_widget_t *w)
       node++;
     }
   }
-  else
+  else // physical folders
   {
     for(int i = 0; i < w->count; i++)
     {

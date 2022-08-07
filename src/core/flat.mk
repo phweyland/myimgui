@@ -7,6 +7,7 @@ CORE_H=core/core.h \
        core/threads.h \
 			 core/signal.h\
 			 core/token.h\
-			 core/qvk_util.h
+			 core/qvk_util.h\
+			 db/exif.h
 CORE_CFLAGS=
 CORE_LDFLAGS=-pthread

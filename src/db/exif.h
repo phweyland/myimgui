@@ -54,7 +54,7 @@ dt_db_exif_mini(
 
       if(NNUM(8)) continue;
       if(NNUM(9)) continue;
-      
+
       if(NNUM(11)) continue;
       if(NNUM(12)) continue;
 
@@ -66,6 +66,7 @@ dt_db_exif_mini(
 #undef NNUM
 
       memcpy(createdate, buf+i, 19);
+      createdate[4] = createdate[7] = '-'; // ISO
       createdate[19] = 0;
       // fprintf(stderr, "create date %s model %s\n", createdate, model);
       return 0;
@@ -73,4 +74,3 @@ dt_db_exif_mini(
   }
   return 1;
 }
-

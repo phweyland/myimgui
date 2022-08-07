@@ -3,6 +3,7 @@
 #include "db/db.h"
 #include "db/murmur3.h"
 #include "db/exif.h"
+#include "db/database.h"
 #include <stdio.h>
 #include <string.h>
 #include <time.h>

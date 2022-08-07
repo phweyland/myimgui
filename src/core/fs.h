@@ -7,7 +7,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "db/database.h"
+typedef struct ap_image_t ap_image_t;
+typedef struct ap_nodes_t ap_nodes_t;
 
 int // returns zero on success
 fs_copy(

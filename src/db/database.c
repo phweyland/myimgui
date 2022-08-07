@@ -451,9 +451,78 @@ const char *ap_db_get_folder(const char *path)
   if(sqlite3_step(stmt) == SQLITE_ROW)
   {
     const char *root = (const char *)sqlite3_column_text(stmt, 0);
-    printf("root %s\n", root);
     folder = (char *)&path[strlen(root)];
   }
-  sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
   return folder;
+}
+
+int ap_db_add_images(uint32_t *imgs, const int nb)
+{
+  clock_t beg = clock();
+  uint32_t rootid = -1u;
+  uint32_t folderid = -1u;
+  int rootlg = 0;
+  int cnt = 0;
+  sqlite3_stmt *stmt;
+
+  if(!nb) return 0;
+  ap_image_t *image = &d.img.images[imgs[0]];
+  sqlite3_prepare_v2(ap_db.handle, "SELECT id, root from main.roots "
+                                   "WHERE SUBSTR(?1, 1, LENGTH(root)) = root",
+                                   -1, &stmt, NULL);
+  sqlite3_bind_text(stmt, 1, image->path, -1, SQLITE_STATIC);
+  if(sqlite3_step(stmt) == SQLITE_ROW)
+  {
+    rootid = sqlite3_column_int(stmt, 0);
+    rootlg = strlen((char *)sqlite3_column_text(stmt, 1));
+  }
+  sqlite3_finalize(stmt);
+  if(rootid == -1u)
+  {
+    dt_log(s_log_db|s_log_err, "[db] %s hasn't any corresponding root", image->path);
+    return 0;
+  }
+
+  sqlite3_prepare_v2(ap_db.handle, "INSERT INTO main.folders (rootid, folder) "
+                                   "VALUES (?1, ?2)",
+                                  -1, &stmt, NULL);
+  sqlite3_bind_int(stmt, 1, rootid);
+  sqlite3_bind_text(stmt, 2, &image->path[rootlg], -1, SQLITE_STATIC);
+  sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+
+  sqlite3_prepare_v2(ap_db.handle, "SELECT id from main.folders "
+                                   "WHERE rootid = ?1 AND folder = ?2",
+                                  -1, &stmt, NULL);
+  sqlite3_bind_int(stmt, 1, rootid);
+  sqlite3_bind_text(stmt, 2, &image->path[rootlg], -1, SQLITE_STATIC);
+  if(sqlite3_step(stmt) == SQLITE_ROW)
+    folderid = sqlite3_column_int(stmt, 0);
+  sqlite3_finalize(stmt);
+  if(folderid == -1u)
+  {
+    dt_log(s_log_db|s_log_err, "[db] folder %s not found", &image->path[rootlg]);
+    return 0;
+  }
+
+  sqlite3_prepare_v2(ap_db.handle, "INSERT INTO main.images (folderid, filename, hash, datetime) "
+                                   "VALUES (?1, ?2, ?3, julianday(?4))",
+                                  -1, &stmt, NULL);
+  for(int i = 0; i < nb; i++)
+  {
+    image = &d.img.images[imgs[i]];
+    sqlite3_bind_int(stmt, 1, folderid);
+    sqlite3_bind_text(stmt, 2, image->filename, -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 3, image->hash);
+    sqlite3_bind_text(stmt, 4, image->datetime, -1, SQLITE_STATIC);
+    if(sqlite3_step(stmt) == SQLITE_DONE)
+      cnt++;
+    sqlite3_reset(stmt);
+  }
+  sqlite3_finalize(stmt);
+
+  clock_t end = clock();
+  dt_log(s_log_perf, "[db] ran add %d images in %3.0fms", cnt, 1000.0*(end-beg)/CLOCKS_PER_SEC);
+  return cnt;
 }
