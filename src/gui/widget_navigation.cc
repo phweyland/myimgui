@@ -36,6 +36,16 @@ static void _update_node(ap_navigation_widget_t *w)
   w->count = -1u;
 }
 
+static void _one_node_up(ap_navigation_widget_t *w)
+{
+  int len = strnlen(w->node, sizeof(w->node));
+  char *c = w->node + len;
+  while(c >= w->node && *c != w->sep[0])
+    *(c--) = 0;
+  if(c >= w->node && *c == w->sep[0])
+    *c = 0;
+}
+
 void ap_navigation_open(ap_navigation_widget_t *w)
 {
   if(d.img.type != w->type || w->count == -1u)
@@ -53,7 +63,20 @@ void ap_navigation_open(ap_navigation_widget_t *w)
     w->button = "Open";
   }
 
-  if(w->type == 2)
+  if(w->type == 0)
+  {
+    if(ImGui::Button("Remove"))
+    {
+      if(ap_db_remove_images(d.img.selection, d.img.selection_cnt))
+      {
+        _one_node_up(w);
+        _update_node(w);
+      }
+      ap_gui_switch_collection(w->node, w->type);
+    }
+    ImGui::SameLine();
+  }
+  else if(w->type == 2)
   {
     if(ImGui::Button("Import"))
     {
@@ -83,12 +106,7 @@ void ap_navigation_open(ap_navigation_widget_t *w)
     snprintf(name, sizeof(name), "%s", "..");
     if(ImGui::Selectable(name, selected, 0))
     {// go up one node
-      int len = strnlen(w->node, sizeof(w->node));
-      char *c = w->node + len;
-      while(c >= w->node && *c != w->sep[0])
-        *(c--) = 0;
-      if(c >= w->node && *c == w->sep[0])
-        *c = 0;
+      _one_node_up(w);
       _update_node(w);
     }
     // display list of nodes

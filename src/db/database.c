@@ -526,3 +526,54 @@ int ap_db_add_images(uint32_t *imgs, const int nb)
   dt_log(s_log_perf, "[db] ran add %d images in %3.0fms", cnt, 1000.0*(end-beg)/CLOCKS_PER_SEC);
   return cnt;
 }
+
+int ap_db_remove_images(uint32_t *imgs, const int nb)
+{
+  clock_t beg = clock();
+
+  sqlite3_stmt *stmt;
+  if(!nb) return 0;
+
+  ap_image_t *image = &d.img.images[imgs[0]];
+  uint32_t folderid = 0;
+  sqlite3_prepare_v2(ap_db.handle, "SELECT folderid from main.images WHERE id = ?1",
+                                  -1, &stmt, NULL);
+  sqlite3_bind_int(stmt, 1, image->imgid);
+  if(sqlite3_step(stmt) == SQLITE_ROW)
+    folderid = sqlite3_column_int(stmt, 0);
+  sqlite3_finalize(stmt);
+
+  sqlite3_prepare_v2(ap_db.handle, "DELETE FROM main.images WHERE id = ?1",
+                                   -1, &stmt, NULL);
+  for(int i = 0; i < nb; i++)
+  {
+    image = &d.img.images[imgs[i]];
+    sqlite3_bind_int(stmt, 1, image->imgid);
+    sqlite3_step(stmt);
+    sqlite3_reset(stmt);
+  }
+  sqlite3_finalize(stmt);
+
+  // remove folder if empty
+  int cnt = 0;
+  sqlite3_prepare_v2(ap_db.handle, "SELECT COUNT(*) from main.images "
+                                   "WHERE folderid = ?1",
+                                  -1, &stmt, NULL);
+  sqlite3_bind_int(stmt, 1, folderid);
+  if(sqlite3_step(stmt) == SQLITE_ROW)
+    cnt = sqlite3_column_int(stmt, 0);
+  sqlite3_finalize(stmt);
+
+  if(!cnt)
+  {
+    sqlite3_prepare_v2(ap_db.handle, "DELETE FROM main.folders WHERE id = ?1",
+                                     -1, &stmt, NULL);
+    sqlite3_bind_int(stmt, 1, folderid);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+  }
+
+  clock_t end = clock();
+  dt_log(s_log_perf, "[db] ran remove %d images in %3.0fms", nb, 1000.0*(end-beg)/CLOCKS_PER_SEC);
+  return !cnt;
+}

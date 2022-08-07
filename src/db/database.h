@@ -25,3 +25,4 @@ void ap_db_toggle_labels(const uint32_t *sel, const uint32_t cnt, const uint16_t
 
 const char *ap_db_get_folder(const char *path);
 int ap_db_add_images(uint32_t *imgs, const int nb);
+int ap_db_remove_images(uint32_t *imgs, const int nb);
