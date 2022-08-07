@@ -6,6 +6,7 @@
 #include <stdlib.h>
 extern "C" {
 #include "db/rc.h"
+#include "db/database.h"
 #include "gui/gui.h"
 #include "core/log.h"
 #include "core/fs.h"
@@ -16,6 +17,7 @@ void ap_navigation_init(ap_navigation_widget_t *w, const int type)
   memset(w, 0, sizeof(*w));
   w->type = type;
   snprintf(w->sep, sizeof(w->sep), "%s", type == 0 ? "/" : type == 1 ? "|" : "/");
+  w->button = "Open";
   char home[256];
   snprintf(home, sizeof(home), "%s/", getenv("HOME"));
   const char *node = type == 0 ? dt_rc_get(&d.rc, "gui/last_folder", "")
@@ -46,10 +48,34 @@ void ap_navigation_open(ap_navigation_widget_t *w)
     clock_t end = clock();
     dt_log(s_log_perf, "[db] ran get nodes in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
     w->selected = 0;
+    w->button = "Open";
   }
 
-  if (ImGui::Button("Open"))
-    ap_gui_switch_collection(w->node, w->type);
+  if(ImGui::Button(w->button))
+  {
+    if(w->type == 2)
+    {
+      if(strcmp(w->button, "Open") == 0)
+      {
+        ap_gui_switch_collection(w->node, w->type);
+        w->button = "Import";
+      }
+      else
+      {
+        const char *folder = ap_db_get_folder(w->node);
+        printf("get folder %s\n", folder);
+        if(folder)
+        {
+          d.col_tab_req = 1<<0;  // go to Folders tab
+          ap_navigation_widget_t *wf = d.browser[0];
+          snprintf(wf->node, sizeof(wf->node), "%s", folder);
+          wf->node[strlen(wf->node) - 1] = '\0';  // remove the leading '/''
+        }
+      }
+    }
+    else
+      ap_gui_switch_collection(w->node, w->type);
+  }
   char current[256];
   snprintf(current, sizeof(current), "%s", w->node[0] ? w->node : w->type == 2 ? "/" : "root");
   ImGui::SameLine();

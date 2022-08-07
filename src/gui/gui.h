@@ -8,6 +8,7 @@
 typedef struct GLFWwindow GLFWwindow;
 typedef struct ap_db_t ap_db_t;
 typedef struct ap_map_t ap_map_t;
+typedef struct ap_navigation_widget_t ap_navigation_widget_t;
 
 // view modes, lighttable, darkroom, ..
 typedef enum dt_gui_view_t
@@ -130,6 +131,7 @@ typedef struct apdt_t
   int ipl;
   int scrollpos;
   int col_tab_req;
+  ap_navigation_widget_t *browser[3];
 
   int view_mode;
 

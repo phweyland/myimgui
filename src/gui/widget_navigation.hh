@@ -13,6 +13,7 @@ struct ap_navigation_widget_t
   char *selected;   // selected
   char sep[4];      // '/' or '|'
   int type;         // 0: folder (db); 1: tags (db); 2: dir (file system)
+  const char *button;
 };
 
 void ap_navigation_init(ap_navigation_widget_t *w, const int type);

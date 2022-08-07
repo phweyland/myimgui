@@ -23,3 +23,5 @@ int ap_db_get_images(const char *node, const int type, ap_image_t **images);
 
 void ap_db_write_rating(const uint32_t *sel, const uint32_t cnt, const int16_t rating);
 void ap_db_toggle_labels(const uint32_t *sel, const uint32_t cnt, const uint16_t labels);
+
+const char *ap_db_get_folder(const char *path);

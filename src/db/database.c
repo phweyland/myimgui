@@ -439,3 +439,21 @@ void ap_db_toggle_labels(const uint32_t *sel, const uint32_t cnt,const uint16_t 
   clock_t end = clock();
   dt_log(s_log_perf, "[db] ran write images rating in %3.0fms", 1000.0*(end-beg)/CLOCKS_PER_SEC);
 }
+
+const char *ap_db_get_folder(const char *path)
+{
+  char *folder = NULL;
+  sqlite3_stmt *stmt;
+  sqlite3_prepare_v2(ap_db.handle, "SELECT root from main.roots "
+                                   "WHERE SUBSTR(?1, 1, LENGTH(root)) = root",
+                                   -1, &stmt, NULL);
+  sqlite3_bind_text(stmt, 1, path, -1, SQLITE_STATIC);
+  if(sqlite3_step(stmt) == SQLITE_ROW)
+  {
+    const char *root = (const char *)sqlite3_column_text(stmt, 0);
+    printf("root %s\n", root);
+    folder = (char *)&path[strlen(root)];
+  }
+  sqlite3_step(stmt);
+  return folder;
+}

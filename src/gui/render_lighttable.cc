@@ -382,8 +382,11 @@ extern "C" int lighttable_enter()
   dt_filebrowser_init(&vkdtbrowser);
   dt_filebrowser_init(&darktablebrowser);
   ap_navigation_init(&folderbrowser, 0);
+  d.browser[0] = &folderbrowser;
   ap_navigation_init(&tagbrowser, 1);
+  d.browser[1] = &tagbrowser;
   ap_navigation_init(&importbrowser, 2);
+  d.browser[2] = &importbrowser;
   return 0;
 }
 
